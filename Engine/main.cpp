@@ -162,6 +162,23 @@ struct FVector
 	}
 };
 
+// 속성을 나타내기 위한 열거형(enum) 정의
+enum EAttribute
+{
+	WATER, // 물
+	FIRE,  // 불
+	GRASS  // 풀
+};
+
+// 속성 상성을 체크하는 도우미 함수
+bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
+{
+	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
+	if (playerAttribute == FIRE && otherAttribute == GRASS) return true;
+	if (playerAttribute == GRASS && otherAttribute == WATER) return true;
+	return false;
+}
+
 inline float Dot(const FVector& v1, const FVector& v2)
 {
 	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
@@ -567,9 +584,11 @@ public:
 	virtual float GetMagnetic() const = 0;
 	virtual bool GetDivide() const = 0;
 	virtual void SetDivide(bool newDivide) = 0;
-
-
+	
+	
 	virtual void Movement() = 0;
+	virtual EAttribute GetAttribute() const = 0;
+
 };
 
 class UBall : public UPrimitive
@@ -720,6 +739,174 @@ public:
 	float Magnetic;
 	bool bDivide;
 };
+class UPlayer : public UPrimitive
+{
+public:
+	// 생성자: 플레이어 생성 시 호출됨
+	UPlayer()
+	{
+		// 1. 플레이어 속성을 랜덤으로 선택
+		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 중 하나를 랜덤으로 뽑아 속성으로 지정
+
+		Radius = 0.08f; // 초기 크기
+		Mass = Radius * 10.0f;
+		Location = FVector(0.0f, 0.0f, 0.0f); // 화면 중앙에서 시작
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // 속도는 마우스를 따르므로 0으로 시작
+		Score = 0;
+	}
+
+	// UPrimitive의 규칙(순수 가상 함수)에 따라 모든 함수를 구현
+	virtual FVector GetLocation() const override { return Location; }
+	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
+
+	virtual FVector GetVelocity() const override { return Velocity; }
+	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
+
+	virtual float GetMass() const override { return Mass; }
+	virtual float GetRadius() const override { return Radius; }
+	// 규칙에 따라 GetAttribute 함수를 구현
+	virtual EAttribute GetAttribute() const override {return Attribute;} 
+	// 사용되지 않는 기능들은 기본 형태로 구현
+	virtual float GetMagnetic() const override { return 0.0f; }
+	virtual bool GetDivide() const override { return false; }
+	virtual void SetDivide(bool newDivide) override {}
+
+	// 플레이어의 핵심 로직: 마우스를 따라 움직임
+	virtual void Movement() override
+	{
+		extern HWND hWnd; // WinMain의 hWnd를 외부에서 참조
+
+		POINT mousePos;
+		GetCursorPos(&mousePos); // 마우스의 스크린 좌표를 얻음
+		ScreenToClient(hWnd, &mousePos); // 스크린 좌표를 프로그램 창 내부 좌표로 변환
+
+		RECT clientRect;
+		GetClientRect(hWnd, &clientRect); // 프로그램 창의 크기를 얻음
+
+		// 창 내부 좌표(e.g., 0~1024)를 게임 월드 좌표(-1.0 ~ 1.0)로 변환
+		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
+		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
+
+		Location.x = worldX;
+		Location.y = worldY;
+	}
+
+	// 크기와 점수를 조절하는 새로운 함수들
+	void AddScore(int amount) { Score += amount; }
+	int GetScore() const { return Score; }
+	void SetRadius(float newRadius)
+	{
+		Radius = newRadius;
+		// 크기가 변하면 질량도 같이 업데이트
+		Mass = Radius * 10.0f;
+	}
+
+
+public:
+	FVector Location;
+	FVector Velocity;
+	float Radius;
+	float Mass;
+	int Score;
+	EAttribute Attribute;
+};
+
+class UEnemy : public UPrimitive
+{
+public:
+	// 생성자: ENEMY 생성 시 호출됨
+	UEnemy()
+	{
+		// 무작위 속성, 위치, 속도, 크기 설정
+		Attribute = (EAttribute)(rand() % 3);
+		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
+
+		const float enemySpeed = 0.001f;
+		Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
+		Velocity.y = (float)(rand() % 100 - 50) * enemySpeed;
+
+		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f; // 최소, 최대 크기 지정
+		Mass = Radius * 10.0f;
+	}
+
+	// UPrimitive의 규칙에 따라 모든 함수를 구현
+
+	virtual FVector GetLocation() const override { return Location; }
+	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
+	virtual FVector GetVelocity() const override { return Velocity; }
+	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
+	virtual float GetMass() const override { return Mass; }
+	virtual float GetRadius() const override { return Radius; }
+	// 규칙에 따라 GetAttribute 함수를 구현
+	virtual EAttribute GetAttribute() const override { return Attribute; }
+	virtual float GetMagnetic() const override { return 0.0f; }
+	virtual bool GetDivide() const override { return false; }
+	virtual void SetDivide(bool newDivide) override {}
+
+	// ENEMY의 움직임: 기존 UBall처럼 벽에 튕김
+	virtual void Movement() override
+	{
+		Location += Velocity;
+
+		if (Location.x > 1.0f - Radius || Location.x < -1.0f + Radius)
+		{
+			Velocity.x *= -1.0f;
+		}
+		if (Location.y > 1.0f - Radius || Location.y < -1.0f + Radius)
+		{
+			Velocity.y *= -1.0f;
+		}
+	}
+
+
+public:
+	FVector Location;
+	FVector Velocity;
+	float Radius;
+	float Mass;
+	EAttribute Attribute;
+};
+
+class UPrey : public UPrimitive
+{
+public:
+	// 생성자: PREY 생성 시 호출됨
+	UPrey()
+	{
+		// 무작위 속성, 위치, 크기 설정
+		Attribute = (EAttribute)(rand() % 3);
+		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // 움직이지 않으므로 속도는 0
+		Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
+		Mass = Radius * 10.0f;
+	}
+
+	// UPrimitive의 규칙에 따라 모든 함수를 구현
+	virtual FVector GetLocation() const override { return Location; }
+	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
+	virtual FVector GetVelocity() const override { return Velocity; }
+	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
+	virtual float GetMass() const override { return Mass; }
+	virtual float GetRadius() const override { return Radius; }
+	virtual EAttribute GetAttribute() const override { return Attribute; }
+	virtual float GetMagnetic() const override { return 0.0f; }
+	virtual bool GetDivide() const override { return false; }
+	virtual void SetDivide(bool newDivide) override {}
+
+	// PREY의 움직임: 움직이지 않음
+	virtual void Movement() override
+	{
+		// 아무 코드도 없음
+	}
+
+public:
+	FVector Location;
+	FVector Velocity;
+	float Radius;
+	float Mass;
+	EAttribute Attribute;
+};
+
 int UBall::TotalBalls = 0;
 ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
 
