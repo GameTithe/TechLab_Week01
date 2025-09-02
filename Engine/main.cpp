@@ -1,6 +1,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <algorithm>
+#include <vector>
 
 // D3D libraries
 #pragma comment(lib, "user32")
@@ -658,6 +659,7 @@ public:
 		}
 	}
 
+
 public:
 	static ID3D11Buffer* vertexBufferSphere;
 	static int TotalBalls;
@@ -1022,6 +1024,59 @@ public:
 		mergeCount = 0;
 	}
 
+	// 화면 영역 내에 있는지 체크하는 함수
+	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius, 
+						float minX = -2.0f, float maxX = 2.0f, 
+						float minY = -2.0f, float maxY = 2.0f) const
+	{
+		return (renderedLocation.x + renderedRadius >= minX && 
+				renderedLocation.x - renderedRadius <= maxX &&
+				renderedLocation.y + renderedRadius >= minY && 
+				renderedLocation.y - renderedRadius <= maxY);
+	}
+
+	// 보이는 객체와 보이지 않는 객체를 분류하는 함수
+	void ClassifyVisibility(UCamera* camera, 
+						   std::vector<int>& visibleIndices, 
+						   std::vector<int>& invisibleIndices)
+	{
+		visibleIndices.clear();
+		invisibleIndices.clear();
+		
+		for (int i = 0; i < Size; i++)
+		{
+			FVector renderedLocation = camera->GetCameraSpaceLocation(primitives[i]);
+			float renderedRadius = camera->GetCameraSpaceRadius(primitives[i]);
+			
+			if (IsInRenderArea(renderedLocation, renderedRadius))
+			{
+				visibleIndices.push_back(i);
+			}
+			else
+			{
+				invisibleIndices.push_back(i);
+			}
+		}
+	}
+
+	// 보이지 않는 객체들을 삭제하는 함수
+	void RemoveInvisiblePrimitives(const std::vector<int>& invisibleIndices)
+	{
+		// 뒤에서부터 삭제 (인덱스 변화 방지)
+		for (int i = invisibleIndices.size() - 1; i >= 0; i--)
+		{
+			int deleteIndex = invisibleIndices[i];
+			if (deleteIndex < 0 || deleteIndex >= Size) continue; // 안전성 체크
+			
+			delete primitives[deleteIndex];
+			
+			// 마지막 요소를 삭제할 위치로 이동
+			primitives[deleteIndex] = primitives[Size - 1];
+			primitives[Size - 1] = nullptr;
+			Size--;
+		}
+	}
+
 public:
 
 	UPrimitive** primitives = nullptr;
@@ -1097,6 +1152,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	PrimitiveVector.push_back(ball);
 	UCamera* cam = new UCamera();
 
+	// Dirty 플래그를 위한 벡터 - 렌더링할 객체의 인덱스만 저장
+	std::vector<int> visiblePrimitives;
+
 	// Main Loop 
 	while (bIsExit == false)
 	{
@@ -1143,12 +1201,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		renderer.Prepare();
 		renderer.PrepareShader();
 
-		for (int i = 0; i < PrimitiveVector.size(); i++)
+		// Dirty 플래그 업데이트 및 보이지 않는 객체 삭제
+		std::vector<int> invisiblePrimitives; // 삭제할 객체들의 인덱스
+		
+		// FPrimitiveVector의 함수를 사용하여 가시성 분류
+		PrimitiveVector.ClassifyVisibility(cam, visiblePrimitives, invisiblePrimitives);
+		
+		// 보이지 않는 객체들 삭제
+		PrimitiveVector.RemoveInvisiblePrimitives(invisiblePrimitives);
+
+		// 보이는 객체들만 렌더링
+		for (int idx : visiblePrimitives)
 		{
-			// 스크린 상에서의 좌표와 크기 계산
-			UPrimitive* prim = PrimitiveVector[i];
-			FVector renderedLocation = cam->GetCameraSpaceLocation(PrimitiveVector[i]);
-			float renderedRadius = cam->GetCameraSpaceRadius(PrimitiveVector[i]);
+			UPrimitive* prim = PrimitiveVector[idx];
+			FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+			float renderedRadius = cam->GetCameraSpaceRadius(prim);
 			renderer.UpdateConstant(renderedLocation, renderedRadius);
 			renderer.RenderPrimitive(UBall::vertexBufferSphere, numVerticesSphere);
 		}
