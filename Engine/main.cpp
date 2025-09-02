@@ -492,56 +492,6 @@ public:
 
 };
 
-class UCamera
-{
-public:
-	FVector Location;
-	float RenderScale = 1.0f;
-	float TargetRenderScale = 1.0f;
-
-	float RefRadius = 0.2f;    // RenderScale = 1.0 기준
-	float MinScale = 0.15f;    // 스케일 하한선 (너무 작아져서 점처럼 보이지 않게)
-	float MaxScale = 2.0f;     // 스케일 상한선 (과도한 줌인 방지)
-	float SmoothT = 0.2f;      // Lerp 비율
-public:
-	void SetLocation(FVector location)
-	{
-		this->Location = location;
-	}
-
-	void UpdateCamera(UPrimitive* Player)
-	{
-		SetLocation(Player->GetLocation());
-
-		// 실제 렌더링 스케일을 목표 스케일을 향해 점진적으로 조정
-		if (RenderScale != TargetRenderScale)
-		{
-			float playerRadius = std::max(Player->GetRadius(), 0.001f);
-			TargetRenderScale = RefRadius / playerRadius;
-			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
-			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
-
-			float t = 0.3f;
-			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
-			float diff = RenderScale - TargetRenderScale;
-			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
-			{
-				RenderScale = TargetRenderScale;
-			}
-		}
-	}
-
-	FVector GetCameraSpaceLocation(UPrimitive* primitive)
-	{
-		return (primitive->GetLocation() - this->Location) * RenderScale;
-	}
-
-	float GetCameraSpaceRadius(UPrimitive* primitive)
-	{
-		return primitive->GetRadius() * RenderScale;
-	}
-};
-
 class UPrimitive
 {
 public:
@@ -722,6 +672,56 @@ public:
 };
 int UBall::TotalBalls = 0;
 ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
+
+class UCamera
+{
+public:
+	FVector Location;
+	float RenderScale = 1.0f;
+	float TargetRenderScale = 1.0f;
+
+	float RefRadius = 0.2f;    // RenderScale = 1.0 기준
+	float MinScale = 0.15f;    // 스케일 하한선 (너무 작아져서 점처럼 보이지 않게)
+	float MaxScale = 2.0f;     // 스케일 상한선 (과도한 줌인 방지)
+	float SmoothT = 0.2f;      // Lerp 비율
+public:
+	void SetLocation(FVector location)
+	{
+		this->Location = location;
+	}
+
+	void UpdateCamera(UPrimitive* Player)
+	{
+		SetLocation(Player->GetLocation());
+
+		// 실제 렌더링 스케일을 목표 스케일을 향해 점진적으로 조정
+		if (RenderScale != TargetRenderScale)
+		{
+			float playerRadius = std::max(Player->GetRadius(), 0.001f);
+			TargetRenderScale = RefRadius / playerRadius;
+			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
+			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
+
+			float t = 0.3f;
+			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
+			float diff = RenderScale - TargetRenderScale;
+			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
+			{
+				RenderScale = TargetRenderScale;
+			}
+		}
+	}
+
+	FVector GetCameraSpaceLocation(UPrimitive* primitive)
+	{
+		return (primitive->GetLocation() - this->Location) * RenderScale;
+	}
+
+	float GetCameraSpaceRadius(UPrimitive* primitive)
+	{
+		return primitive->GetRadius() * RenderScale;
+	}
+};
 
 struct Merge
 {
