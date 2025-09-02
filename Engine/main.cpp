@@ -910,6 +910,86 @@ public:
 int UBall::TotalBalls = 0;
 ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
 
+class Controller
+{
+public:
+	UPlayer** PlayerCells = nullptr;
+	int MaxCount = 0;
+	int Count = 0;
+
+public:
+	Controller(int MaxCount)
+	{
+		MaxCount = 4;
+		Count = 0;
+		PlayerCells = new UPlayer * [MaxCount];
+		for (int i = 0; i < MaxCount; ++i)
+		{
+			PlayerCells[i] = nullptr;
+		}	
+	}
+
+	~Controller()
+	{
+		for (int i = 0; i < Count; ++i)
+		{
+			delete PlayerCells[i];
+		}
+		delete[] PlayerCells;
+	}
+
+	bool TryGetCenterOfMass(FVector& CenterOfMass)
+	{
+		if (Count == 0)
+		{
+			return false;
+		}
+
+		float CenterX = 0.0f;
+		float CenterY = 0.0f;
+		float TotalMass = 0.0f;
+
+		for (int i = 0; i < Count; ++i)
+		{
+			// NRE 대비
+			UPlayer* Cell = PlayerCells[i];
+			if (!Cell)
+			{
+				continue;
+			}
+			float Mass = Cell->GetMass();
+			FVector Location = Cell->GetLocation();
+			CenterX += Location.x * Mass;
+			CenterY += Location.y * Mass;
+		}
+
+		// Fallback: 질량 합이 거의 0인 경우 오차 방지 차원에서 평균 위치 사용
+		if (TotalMass < 1e-6)
+		{
+			CenterX = CenterY = 0.0f;
+			for (int i = 0; i < Count; ++i)
+			{
+				// NRE 대비
+				UPlayer* Cell = PlayerCells[i];
+				if (!Cell)
+				{
+					continue;
+				}
+
+				FVector Location = Cell->GetLocation();
+				CenterX += Location.x;
+				CenterY += Location.y;
+			}
+			CenterOfMass = FVector(CenterX / Count, CenterY / Count, 0.0f);
+			return true;
+		}
+
+		CenterOfMass = FVector(CenterX / TotalMass, CenterY / TotalMass, 0.0f);
+		return true;
+	}
+
+};
+
 struct Merge
 {
 	int indexA;
