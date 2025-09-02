@@ -182,7 +182,6 @@ public:
 	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// 렌더링 영역을 정의하는 뷰포트 정보 
 
-
 public:
 
 	// 렌더러 초기화 함수
@@ -466,6 +465,53 @@ public:
 
 };
 
+class UCamera
+{
+public:
+	FVector Location;
+	float RenderScale = 1.0f;
+	float TargetRenderScale = 1.0f;
+
+public:
+	void SetLocation(FVector location)
+	{
+		this->Location = location;
+	}
+
+	void UpdateCamera(UPrimitive* Player)
+	{
+		float playerRadius = Player->GetRadius();
+		// 플레이어 반지름을 기반으로 목표 스케일 결정
+		if (playerRadius < 0.2f)
+		{
+			TargetRenderScale = 1.0f;
+		}
+		else
+		{
+			TargetRenderScale = playerRadius * 5.0f;
+		}
+		// 실제 렌더링 스케일을 목표 스케일을 향해 점진적으로 조정
+		if (RenderScale != TargetRenderScale)
+		{
+			float t = 0.3f;
+			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
+			float diff = RenderScale - TargetRenderScale;
+			if (-0.1f < diff && diff < 0.1f)
+			{
+				RenderScale = TargetRenderScale;
+			}
+		}
+
+		SetLocation(Player->GetLocation());
+	}
+
+	FVector GetScreenLocation(UPrimitive* primitive)
+	{
+		FVector worldLoc = primitive->GetLocation();
+		FVector screenLoc = (worldLoc - this->Location) * RenderScale;
+		return screenLoc;
+	}
+};
 
 class UPrimitive
 {
@@ -1153,6 +1199,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		 
 		for (int i = 0; i < PrimitiveVector.size(); i++)
 		{
+			// 스크린 상에서의 좌표와 크기 계산
+
 			renderer.UpdateConstant(PrimitiveVector[i]->GetLocation(), PrimitiveVector[i]->GetRadius());
 			renderer.RenderPrimitive(UBall::vertexBufferSphere, numVerticesSphere);
 		}
