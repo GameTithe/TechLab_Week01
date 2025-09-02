@@ -26,7 +26,7 @@ PS_INPUT mainVS(VS_INPUT input)
     PS_INPUT output;
     
     // [-1.0f , 1.0f] 
-    float2 ndc = float2(        
+    float2 ndc = float2(
      ((input.position.x / WindowSize.x) - 0.5f) * 2.0f,
      ((input.position.y / WindowSize.y) - 0.5f) * 2.0f
     );
@@ -45,6 +45,6 @@ float4 mainPS(PS_INPUT input) : SV_Target
     float4 tex0 = UITexture.Sample(UITexture, input.uv);
     
 
-    // color.a ·Î fadeout Ã³¸®??
-    return float4(tex0.rbg, tex0.a);   
+    // color.a ë¡œ fadeout ì²˜ë¦¬??
+    return float4(tex0.rbg, tex0.a);
 }
