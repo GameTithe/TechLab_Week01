@@ -685,6 +685,15 @@ public:
 	float MaxScale = 2.0f;     // 스케일 상한선 (과도한 줌인 방지)
 	float SmoothT = 0.2f;      // Lerp 비율
 public:
+	UCamera(UPrimitive* Player)
+	{
+		SetLocation(Player->GetLocation());
+		float playerRadius = std::max(Player->GetRadius(), 0.001f);
+		TargetRenderScale = RefRadius / playerRadius;
+		TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
+		RenderScale = TargetRenderScale;
+	}
+
 	void SetLocation(FVector location)
 	{
 		this->Location = location;
@@ -701,10 +710,6 @@ public:
 			TargetRenderScale = RefRadius / playerRadius;
 			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
 			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
-
-			float t = 0.3f;
-			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
-			float diff = RenderScale - TargetRenderScale;
 			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
 			{
 				RenderScale = TargetRenderScale;
@@ -1095,7 +1100,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FPrimitiveVector PrimitiveVector;
 	UBall* ball = new UBall();
 	PrimitiveVector.push_back(ball);
-	UCamera* cam = new UCamera();
+	UCamera* cam = new UCamera(ball);
 
 	// Main Loop 
 	while (bIsExit == false)
@@ -1142,6 +1147,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// Frame Update
 		renderer.Prepare();
 		renderer.PrepareShader();
+
+		cam->UpdateCamera(PrimitiveVector[0]);
 
 		for (int i = 0; i < PrimitiveVector.size(); i++)
 		{
