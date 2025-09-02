@@ -20,6 +20,9 @@
 
 // UI
 #include "UIInfo.h"
+#include <iostream> // cout 사용을 위해
+#include <ctime>    // time() 함수를 위해
+#include <cstdlib>  // srand(), rand() 함수를 위해
 
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -907,8 +910,8 @@ public:
 	EAttribute Attribute;
 };
 
-int UBall::TotalBalls = 0;
-ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
+//int UBall::TotalBalls = 0;
+//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
 
 struct Merge
 {
@@ -919,6 +922,9 @@ struct Merge
 class FPrimitiveVector
 {
 public:
+	// 플레이어 객체에 쉽게 접근하기 위한 포인터
+	UPlayer* Player = nullptr;
+
 	FPrimitiveVector()
 	{
 		Capacity = 10;
@@ -941,6 +947,15 @@ public:
 		{
 			ReSize();
 		}
+
+		// 만약 추가되는 객체가 플레이어라면, Player 포인터에 저장
+		// dynamic_cast는 UPrimitive*를 UPlayer*로 안전하게 변환 시도
+		UPlayer* playerCandidate = dynamic_cast<UPlayer*>(primitive);
+		if (playerCandidate != nullptr)
+		{
+			Player = playerCandidate;
+		}
+
 		primitives[Size++] = primitive;
 	}
 
@@ -965,6 +980,22 @@ public:
 			primitives[Size - 1] = nullptr;
 			Size--;
 		}
+	}
+	void RemoveAt(int index)
+	{
+		// 유효하지 않은 인덱스면 즉시 종료
+		if (index < 0 || index >= Size)
+		{
+			return;
+		}
+
+		// 객체 메모리 해제
+		delete primitives[index];
+
+		// 마지막 원소를 현재 위치로 이동 (가장 빠른 제거 방법)
+		primitives[index] = primitives[Size - 1];
+		primitives[Size - 1] = nullptr;
+		Size--;
 	}
 
 	void ReSize()
@@ -994,72 +1025,106 @@ public:
 		}
 		return primitives[index];
 	}
-
-	void CollisionCheck(float elastic, bool bCombination)
+	void ProcessGameLogic()
 	{
-		for (int i = 0; i < Size; ++i)
+		if (Player == nullptr) return; // 플레이어가 없으면 아무것도 안 함
+
+		// 배열을 거꾸로 순회해야 객체 제거 시에도 안전함
+		for (int i = Size - 1; i >= 0; --i)
 		{
-			for (int j = i + 1; j < Size; ++j)
+			// 자기 자신(플레이어)과는 충돌 검사를 하지 않음
+			if (primitives[i] == Player)
 			{
-				UPrimitive* a = primitives[i];
-				UPrimitive* b = primitives[j];
+				continue;
+			}
 
-				float radius1 = a->GetRadius();
-				float radius2 = b->GetRadius();
+			UPrimitive* other = primitives[i];
+			float dist2 = FVector::Distance2(Player->GetLocation(), other->GetLocation());
+			float minDist = Player->GetRadius() + other->GetRadius();
 
-				FVector pos1 = a->GetLocation();
-				FVector pos2 = b->GetLocation();
-
-				float dist2 = FVector::Distance2(pos2, pos1);
-				float minDist = radius1 + radius2;
-
-				// 구와 구의 충돌처리 sqrt 비용이 비싸기 때문에 squre되어있는 상태에서 거리 비교
-				if (dist2 < minDist * minDist)
+			// 충돌했다면
+			if (dist2 < minDist * minDist)
+			{
+				// 이기는 상성인지 체크
+				if (CheckWin(Player->GetAttribute(), other->GetAttribute()))
 				{
-
-					if (bCombination && mergeCount < 1024)
-					{
-						mergeList[mergeCount] = { i, j };
-						mergeCount++;
-					}
-					//Combine이 아니거나 mergeCount가 최대 merge보다 클 때
-					else
-					{
-						float dist = sqrt(dist2);
-						FVector normal = (pos2 - pos1);
-						normal.Normalize();
-
-						FVector velocityOfA = a->GetVelocity();
-						FVector velocityOfB = b->GetVelocity();
-
-						FVector relativeVelocity = velocityOfB - velocityOfA;
-						float speed = Dot(relativeVelocity, normal);
-
-						// 상대 속도와 충돌된 구와의 방향이 같을 때만 충격량 계산
-						if (speed < 0.0f)
-						{
-							float massOfA = a->GetMass();
-							float massOfB = b->GetMass();
-
-							float impulse = -(1 + elastic) * speed / (1 / massOfA + 1 / massOfB);
-							FVector J = normal * impulse;
-
-							a->SetVelocity(velocityOfA - J / massOfA);
-							b->SetVelocity(velocityOfB + J / massOfB);
-						}
-
-						// 위치 보정
-						float penetration = minDist - dist;
-						FVector correction = normal * (penetration * 0.5f);
-						a->SetLocation(pos1 - correction);
-						b->SetLocation(pos2 + correction);
-					}
+					Player->AddScore(10);
+					Player->SetRadius(Player->GetRadius() + 0.005f); // 크기 증가
 				}
+				else // 지거나 비기는 상성
+				{
+					Player->AddScore(-5);
+					Player->SetRadius(Player->GetRadius() - 0.005f); // 크기 감소
+				}
+
+				// 충돌한 객체는 제거
+				RemoveAt(i);
 			}
 		}
-
-		Combination();
 	}
+	//void CollisionCheck(float elastic, bool bCombination)
+	//{
+	//	for (int i = 0; i < Size; ++i)
+	//	{
+	//		for (int j = i + 1; j < Size; ++j)
+	//		{
+	//			UPrimitive* a = primitives[i];
+	//			UPrimitive* b = primitives[j];
+
+	//			float radius1 = a->GetRadius();
+	//			float radius2 = b->GetRadius();
+
+	//			FVector pos1 = a->GetLocation();
+	//			FVector pos2 = b->GetLocation();
+
+	//			float dist2 = FVector::Distance2(pos2, pos1);
+	//			float minDist = radius1 + radius2;
+
+	//			// 구와 구의 충돌처리 sqrt 비용이 비싸기 때문에 squre되어있는 상태에서 거리 비교
+	//			if (dist2 < minDist * minDist)
+	//			{
+
+	//				if (bCombination && mergeCount < 1024)
+	//				{
+	//					mergeList[mergeCount] = { i, j };
+	//					mergeCount++;
+	//				}
+	//				//Combine이 아니거나 mergeCount가 최대 merge보다 클 때
+	//				else
+	//				{
+	//					float dist = sqrt(dist2);
+	//					FVector normal = (pos2 - pos1);
+	//					normal.Normalize();
+
+	//					FVector velocityOfA = a->GetVelocity();
+	//					FVector velocityOfB = b->GetVelocity();
+
+	//					FVector relativeVelocity = velocityOfB - velocityOfA;
+	//					float speed = Dot(relativeVelocity, normal);
+
+	//					// 상대 속도와 충돌된 구와의 방향이 같을 때만 충격량 계산
+	//					if (speed < 0.0f)
+	//					{
+	//						float massOfA = a->GetMass();
+	//						float massOfB = b->GetMass();
+
+	//						float impulse = -(1 + elastic) * speed / (1 / massOfA + 1 / massOfB);
+	//						FVector J = normal * impulse;
+
+	//						a->SetVelocity(velocityOfA - J / massOfA);
+	//						b->SetVelocity(velocityOfB + J / massOfB);
+	//					}
+
+	//					// 위치 보정
+	//					float penetration = minDist - dist;
+	//					FVector correction = normal * (penetration * 0.5f);
+	//					a->SetLocation(pos1 - correction);
+	//					b->SetLocation(pos2 + correction);
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 	  
 	// 쿨룽 식으로 자기력 효과 
 	// 거리 제곱에 반비례
@@ -1094,120 +1159,120 @@ public:
 		}
 	}
 
-	//일정 반지름 이하일 때 분할하도록 유도
-	void Explosion()
-	{
-		for (int i = 0; i < Size; ++i)
-		{
-			UPrimitive* primitive = primitives[i];
-			if (primitive->GetRadius() > 0.05f)
-			{
-				primitive->SetDivide(true);
-			}
-		}
+	////일정 반지름 이하일 때 분할하도록 유도
+	//void Explosion()
+	//{
+	//	for (int i = 0; i < Size; ++i)
+	//	{
+	//		UPrimitive* primitive = primitives[i];
+	//		if (primitive->GetRadius() > 0.05f)
+	//		{
+	//			primitive->SetDivide(true);
+	//		}
+	//	}
 
-		for (int i = 0; i < Size; ++i)
-		{
-			UPrimitive* primitive = primitives[i];
-			if (primitive->GetDivide())
-			{
-				FVector location = primitive->GetLocation();
-				FVector velocity = primitive->GetVelocity();
-				float radius = primitive->GetRadius() * 0.5f;
+	//	for (int i = 0; i < Size; ++i)
+	//	{
+	//		UPrimitive* primitive = primitives[i];
+	//		if (primitive->GetDivide())
+	//		{
+	//			FVector location = primitive->GetLocation();
+	//			FVector velocity = primitive->GetVelocity();
+	//			float radius = primitive->GetRadius() * 0.5f;
 
-				//새로운 공 생성
-				UPrimitive* newBall1 = new UBall(radius);
-				newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
-				newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
-				push_back(newBall1);
+	//			//새로운 공 생성
+	//			UPrimitive* newBall1 = new UBall(radius);
+	//			newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
+	//			newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
+	//			push_back(newBall1);
 
-				UPrimitive* newBall2 = new UBall(radius);
-				newBall2->SetLocation(FVector(location.x - radius, location.y, location.z));
-				newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
-				push_back(newBall2);
+	//			UPrimitive* newBall2 = new UBall(radius);
+	//			newBall2->SetLocation(FVector(location.x - radius, location.y, location.z));
+	//			newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
+	//			push_back(newBall2);
 
-				//기존 공 제거
-				delete primitive;
-				primitives[i] = nullptr;
-				primitives[i] = primitives[Size - 1];
-				primitives[i]->SetDivide(false);
-				Size--;
-			}
-		}
-	}
+	//			//기존 공 제거
+	//			delete primitive;
+	//			primitives[i] = nullptr;
+	//			primitives[i] = primitives[Size - 1];
+	//			primitives[i]->SetDivide(false);
+	//			Size--;
+	//		}
+	//	}
+	//}
 
-	void Combination()
-	{
-		//큰 index먼저 처리를 위해서 정렬
-		for (int i = 0; i < mergeCount - 1; ++i)
-		{
-			for (int j = i + 1; j < mergeCount; ++j)
-			{
-				int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
-				int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
+	//void Combination()
+	//{
+	//	//큰 index먼저 처리를 위해서 정렬
+	//	for (int i = 0; i < mergeCount - 1; ++i)
+	//	{
+	//		for (int j = i + 1; j < mergeCount; ++j)
+	//		{
+	//			int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
+	//			int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
 
-				if (maxI < maxJ) // 내림차순 정렬
-				{
-					Merge temp = mergeList[i];
-					mergeList[i] = mergeList[j];
-					mergeList[j] = temp;
-				}
-			}
+	//			if (maxI < maxJ) // 내림차순 정렬
+	//			{
+	//				Merge temp = mergeList[i];
+	//				mergeList[i] = mergeList[j];
+	//				mergeList[j] = temp;
+	//			}
+	//		}
 
-		}
-		for (int i = 0; i < mergeCount; i++)
-		{
-			int indexA = mergeList[i].indexA;
-			int indexB = mergeList[i].indexB;
+	//	}
+	//	for (int i = 0; i < mergeCount; i++)
+	//	{
+	//		int indexA = mergeList[i].indexA;
+	//		int indexB = mergeList[i].indexB;
 
-			//안에 있는 index 중에서도 큰 값먼저 계산하기 위함
-			if (indexA < indexB)
-			{
-				int temp = indexA;
-				indexA = indexB;
-				indexB = temp;
-			}
+	//		//안에 있는 index 중에서도 큰 값먼저 계산하기 위함
+	//		if (indexA < indexB)
+	//		{
+	//			int temp = indexA;
+	//			indexA = indexB;
+	//			indexB = temp;
+	//		}
 
-			//예외처리 
-			if (indexA == -1 || indexB == -1)
-			{
-				continue;
-			}
-			if (indexA >= Size || indexB >= Size)
-			{
-				continue;
-			}
-			UPrimitive* a = primitives[indexA];
-			UPrimitive* b = primitives[indexB];
+	//		//예외처리 
+	//		if (indexA == -1 || indexB == -1)
+	//		{
+	//			continue;
+	//		}
+	//		if (indexA >= Size || indexB >= Size)
+	//		{
+	//			continue;
+	//		}
+	//		UPrimitive* a = primitives[indexA];
+	//		UPrimitive* b = primitives[indexB];
 
-			FVector newLocation = (a->GetLocation() + a->GetLocation()) * 0.5f;
-			float radiusA = a->GetRadius();
-			float radiusB = b->GetRadius();
+	//		FVector newLocation = (a->GetLocation() + a->GetLocation()) * 0.5f;
+	//		float radiusA = a->GetRadius();
+	//		float radiusB = b->GetRadius();
 
 
-			delete a;
-			primitives[indexA] = primitives[Size - 1];
-			Size--;
+	//		delete a;
+	//		primitives[indexA] = primitives[Size - 1];
+	//		Size--;
 
-			delete b;
-			primitives[indexB] = primitives[Size - 1];
-			Size--;
+	//		delete b;
+	//		primitives[indexB] = primitives[Size - 1];
+	//		Size--;
 
-			float newRadius = radiusA + radiusB;
-			newRadius = newRadius > 1.0f ? 1.0f : newRadius;
-			UBall* newBall = new UBall(newRadius);
-			newBall->SetLocation(newLocation);
-			push_back(newBall);
-		}
+	//		float newRadius = radiusA + radiusB;
+	//		newRadius = newRadius > 1.0f ? 1.0f : newRadius;
+	//		UBall* newBall = new UBall(newRadius);
+	//		newBall->SetLocation(newLocation);
+	//		push_back(newBall);
+	//	}
 
-		//clear
-		for (int i = 0; i < mergeCount; i++)
-		{
-			mergeList[i].indexA = -1;
-			mergeList[i].indexB = -1;
-		}
-		mergeCount = 0;
-	}
+	//	//clear
+	//	for (int i = 0; i < mergeCount; i++)
+	//	{
+	//		mergeList[i].indexA = -1;
+	//		mergeList[i].indexB = -1;
+	//	}
+	//	mergeCount = 0;
+	//}
 
 public:
 
@@ -1219,7 +1284,7 @@ public:
 	int mergeCount = 0;
 };
 
-int DesireNumberOfBalls = UBall::TotalBalls;
+//int DesireNumberOfBalls = UBall::TotalBalls;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -1239,6 +1304,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
+	srand((unsigned int)time(NULL));
 
 	//각종 생성/초기화 코드를 여기에 추가
 	URenderer renderer;
@@ -1254,6 +1320,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	FVertexSimple* verticesSphere = sphere_vertices;
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
+	
+	FPrimitiveVector PrimitiveVector;
+
+	// 플레이어 생성 및 추가
+	UPlayer* player = new UPlayer();
+	PrimitiveVector.push_back(player);
+
+	// 초기 ENEMY와 PREY 생성
+	for (int i = 0; i < 10; ++i)
+	{
+		PrimitiveVector.push_back(new UEnemy());
+		PrimitiveVector.push_back(new UPrey());
+	}
 
 	// 구에 관한 Vertex Buffer는 한 번만 생성 후 재사용
 	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
@@ -1278,10 +1358,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0f;
 
-	// 공 하나 추가하고 시작
-	FPrimitiveVector PrimitiveVector;
-	UBall* ball = new UBall();
-	PrimitiveVector.push_back(ball);
+	//// 공 하나 추가하고 시작
+	//FPrimitiveVector PrimitiveVector;
+	//UBall* ball = new UBall();
+	//PrimitiveVector.push_back(ball);
 	UCamera* cam = new UCamera();
 
 	// Main Loop 
@@ -1310,21 +1390,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector[i]->Movement();
 		}
 
-		//collision check
-		PrimitiveVector.CollisionCheck(elastic, bCombination);
-		 
-		//Magnetic
-		if (bMagnetic)
-		{
-			PrimitiveVector.MagneticForce();
-		}
-		if (bExplosion)
-		{
-			PrimitiveVector.Explosion();
-			bExplosion = false;
-		}
+		////collision check
+		//PrimitiveVector.CollisionCheck(elastic, bCombination);
+		// 
+		////Magnetic
+		//if (bMagnetic)
+		//{
+		//	PrimitiveVector.MagneticForce();
+		//}
+		//if (bExplosion)
+		//{
+		//	PrimitiveVector.Explosion();
+		//	bExplosion = false;
+		//}
 
-		DesireNumberOfBalls = PrimitiveVector.size(); // 업데이트 후 공의 개수 최신화
+		//DesireNumberOfBalls = PrimitiveVector.size(); // 업데이트 후 공의 개수 최신화
 
 		// Frame Update
 		renderer.Prepare();
@@ -1384,8 +1464,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
-	// 소멸에 필요한 코드 
-	renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
+	//// 소멸에 필요한 코드 
+	//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
+	
+	// WinMain에서 생성한 버퍼 해제
+	renderer.ReleaseVertexBuffer(vertexBufferSphere); 
+	renderer.ReleaseConstantBuffer();
 
 	renderer.ReleaseConstantBuffer();
 	renderer.ReleaseShader();
