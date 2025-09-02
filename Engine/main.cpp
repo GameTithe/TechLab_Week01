@@ -23,7 +23,9 @@
 #include <iostream> // cout 사용을 위해
 #include <ctime>    // time() 함수를 위해
 #include <cstdlib>  // srand(), rand() 함수를 위해
+#include <cstdlib>
 
+HWND hWnd = nullptr;
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -512,6 +514,38 @@ public:
 
 };
 
+class UPrimitive
+{
+public:
+	UPrimitive()
+	{
+
+	}
+
+	virtual ~UPrimitive()
+	{
+
+
+	}
+public:
+	virtual FVector GetLocation() const = 0;
+	virtual void SetLocation(FVector newLocation) = 0;
+
+	virtual FVector GetVelocity() const = 0;
+	virtual void SetVelocity(FVector newVelocity) = 0;
+
+	virtual float GetMass() const = 0;
+	virtual float GetRadius() const = 0;
+	virtual float GetMagnetic() const = 0;
+	virtual bool GetDivide() const = 0;
+	virtual void SetDivide(bool newDivide) = 0;
+
+
+	virtual void Movement() = 0;
+	virtual EAttribute GetAttribute() const = 0;
+
+};
+
 class UCamera
 {
 public:
@@ -560,38 +594,6 @@ public:
 	{
 		return primitive->GetRadius() * RenderScale;
 	}
-};
-
-class UPrimitive
-{
-public:
-	UPrimitive()
-	{
-
-	}
-
-	virtual ~UPrimitive()
-	{
-
-
-	}
-public:
-	virtual FVector GetLocation() const = 0;
-	virtual void SetLocation(FVector newLocation) = 0;
-
-	virtual FVector GetVelocity() const = 0;
-	virtual void SetVelocity(FVector newVelocity) = 0;
-
-	virtual float GetMass() const = 0;
-	virtual float GetRadius() const = 0;
-	virtual float GetMagnetic() const = 0;
-	virtual bool GetDivide() const = 0;
-	virtual void SetDivide(bool newDivide) = 0;
-	
-	
-	virtual void Movement() = 0;
-	virtual EAttribute GetAttribute() const = 0;
-
 };
 
 class UBall : public UPrimitive
@@ -768,7 +770,7 @@ public:
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
 	// 규칙에 따라 GetAttribute 함수를 구현
-	virtual EAttribute GetAttribute() const override {return Attribute;} 
+	virtual EAttribute GetAttribute() const override { return Attribute; }
 	// 사용되지 않는 기능들은 기본 형태로 구현
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
@@ -911,8 +913,88 @@ public:
 };
 
 //int UBall::TotalBalls = 0;
-//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
+//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화\
 
+
+class Controller
+{
+public:
+	UPlayer** PlayerCells = nullptr;
+	int MaxCount = 0;
+	int Count = 0;
+
+public:
+	Controller(int MaxCount)
+	{
+		MaxCount = 4;
+		Count = 0;
+		PlayerCells = new UPlayer * [MaxCount];
+		for (int i = 0; i < MaxCount; ++i)
+		{
+			PlayerCells[i] = nullptr;
+		}
+	}
+
+	~Controller()
+	{
+		for (int i = 0; i < Count; ++i)
+		{
+			delete PlayerCells[i];
+		}
+		delete[] PlayerCells;
+	}
+
+	bool TryGetCenterOfMass(FVector& CenterOfMass)
+	{
+		if (Count == 0)
+		{
+			return false;
+		}
+
+		float CenterX = 0.0f;
+		float CenterY = 0.0f;
+		float TotalMass = 0.0f;
+
+		for (int i = 0; i < Count; ++i)
+		{
+			// NRE 대비
+			UPlayer* Cell = PlayerCells[i];
+			if (!Cell)
+			{
+				continue;
+			}
+			float Mass = Cell->GetMass();
+			FVector Location = Cell->GetLocation();
+			CenterX += Location.x * Mass;
+			CenterY += Location.y * Mass;
+		}
+
+		// Fallback: 질량 합이 거의 0인 경우 오차 방지 차원에서 평균 위치 사용
+		if (TotalMass < 1e-6)
+		{
+			CenterX = CenterY = 0.0f;
+			for (int i = 0; i < Count; ++i)
+			{
+				// NRE 대비
+				UPlayer* Cell = PlayerCells[i];
+				if (!Cell)
+				{
+					continue;
+				}
+
+				FVector Location = Cell->GetLocation();
+				CenterX += Location.x;
+				CenterY += Location.y;
+			}
+			CenterOfMass = FVector(CenterX / Count, CenterY / Count, 0.0f);
+			return true;
+		}
+
+		CenterOfMass = FVector(CenterX / TotalMass, CenterY / TotalMass, 0.0f);
+		return true;
+	}
+
+};
 struct Merge
 {
 	int indexA;
@@ -1125,7 +1207,7 @@ public:
 	//		}
 	//	}
 	//}
-	  
+
 	// 쿨룽 식으로 자기력 효과 
 	// 거리 제곱에 반비례
 	void MagneticForce()
@@ -1301,7 +1383,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	RegisterClassW(&wndClass);
 
 	// 1024 * 1024 크기의 윈도우 생성
-	HWND hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
+	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
 	srand((unsigned int)time(NULL));
@@ -1321,7 +1403,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FVertexSimple* verticesSphere = sphere_vertices;
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
-	
+
 	FPrimitiveVector PrimitiveVector;
 
 	// 플레이어 생성 및 추가
@@ -1335,18 +1417,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		PrimitiveVector.push_back(new UPrey());
 	}
 
-	// 구에 관한 Vertex Buffer는 한 번만 생성 후 재사용
-	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
+	//// 구에 관한 Vertex Buffer는 한 번만 생성 후 재사용
+	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
-	
+
 	bool bMagnetic = false;
 
 	bool bExplosion = false;
 	bool bCombination = false;
 
 
-	float elastic = 1.f; 
+	float elastic = 1.f;
 	FVector windForce(0.0f, 0.0f, 0.0f);
 	const int targetFPS = 30;
 	const float deltaTime = 1.0 / targetFPS;
@@ -1389,6 +1471,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			PrimitiveVector[i]->Movement();
 		}
+		PrimitiveVector.ProcessGameLogic();
+
+		// 2. 카메라가 플레이어를 따라가도록 업데이트
+		cam->UpdateCamera(PrimitiveVector.Player);
 
 		////collision check
 		//PrimitiveVector.CollisionCheck(elastic, bCombination);
@@ -1414,10 +1500,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			// 스크린 상에서의 좌표와 크기 계산
 			UPrimitive* prim = PrimitiveVector[i];
-			FVector renderedLocation = cam->GetCameraSpaceLocation(PrimitiveVector[i]);
-			float renderedRadius = cam->GetCameraSpaceRadius(PrimitiveVector[i]);
+			FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+			float renderedRadius = cam->GetCameraSpaceRadius(prim);
 			renderer.UpdateConstant(renderedLocation, renderedRadius);
-			renderer.RenderPrimitive(UBall::vertexBufferSphere, numVerticesSphere);
+			renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 		}
 
 		// ImGui Update
@@ -1425,22 +1511,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
-		// ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render() 사이에
-		ImGui::Begin("Jungle Property Window");
-		ImGui::Text("Hello Jungle World!");
+		ImGui::Begin("Game Info");
+		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+		ImGui::Text("Objects: %d", PrimitiveVector.size());
 
-		    
-		ImGui::Checkbox("Manentic ", &bMagnetic);
-
-		if (ImGui::Button("Explore"))
+		// 플레이어 속성을 텍스트로 보여주기
+		if (PrimitiveVector.Player)
 		{
-			bExplosion = !bExplosion;
+			EAttribute attr = PrimitiveVector.Player->GetAttribute();
+			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+			ImGui::Text("Player Attribute: %s", attrText);
 		}
-
-		ImGui::Checkbox("Combine", &bCombination);
-
-
 		ImGui::End();
+		// ▲▲▲▲▲▲▲▲▲▲
 
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -1466,12 +1549,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	//// 소멸에 필요한 코드 
 	//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
-	
+
 	// WinMain에서 생성한 버퍼 해제
-	renderer.ReleaseVertexBuffer(vertexBufferSphere); 
+	renderer.ReleaseVertexBuffer(vertexBufferSphere);
 	renderer.ReleaseConstantBuffer();
 
-	renderer.ReleaseConstantBuffer();
 	renderer.ReleaseShader();
 	renderer.Release();
 
