@@ -16,6 +16,10 @@
 #include "imGui/imgui_impl_win32.h"
 
 
+// UI
+#include "UIInfo.h"
+
+
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // 각종 메세지를 처리할 함수
@@ -179,6 +183,16 @@ public:
 	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (셰이더에 전달할 데이터 저장용)
 
 
+	//UI
+	ID3D11VertexShader* UIVS = nullptr;
+	ID3D11PixelShader* UIPS = nullptr;
+	ID3D11InputLayout* UIInputLayout = nullptr;
+	ID3D11Buffer* UIVertexBuffer = nullptr;  // 동적 VB
+	ID3D11Buffer* UIPerFrameCB = nullptr;
+	ID3D11ShaderResourceView* UISRV = nullptr;
+	ID3D11SamplerState* UISampler = nullptr;
+	ID3D11BlendState* UIAlphaBlend = nullptr;
+
 	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// 렌더링 영역을 정의하는 뷰포트 정보 
 
@@ -307,6 +321,17 @@ public:
 	{
 		SwapChain->Present(1, 0); // 1: VSync 활성화 => GPU 프레임 속도 & 화면 갱신 속도 동기화
 	}
+
+	void CreateUIResource()
+	{
+		//쉐이더 컴파일
+	}
+
+	void ReleaseUIResource()
+	{
+
+	}
+
 
 	//Shader
 public:
@@ -487,7 +512,7 @@ public:
 	virtual FVector GetVelocity() const = 0;
 	virtual void SetVelocity(FVector newVelocity) = 0;
 
-	virtual float GetMass() const = 0; 
+	virtual float GetMass() const = 0;
 	virtual float GetRadius() const = 0;
 	virtual float GetMagnetic() const = 0;
 	virtual bool GetDivide() const = 0;
@@ -514,7 +539,7 @@ public:
 		Radius = Radius < 0.05f ? 0.05f : Radius;	  // 0.05 ~ 0.2
 
 		Mass = Radius * 10.0f;
-		
+
 		float randMagnetic = (rand() / (float)RAND_MAX) * 2.0f - 1.0f;
 		int sign = randMagnetic > 0 ? 1 : -1;
 		Magnetic = Mass * sign;
@@ -530,9 +555,9 @@ public:
 		const float ballSpeed = 0.001f;
 		Velocity.x = (float)(rand() % 100 - 50) * ballSpeed;
 		Velocity.y = (float)(rand() % 100 - 50) * ballSpeed;
-		 
+
 		Mass = Radius * 10.0f;
-		
+
 		float randMagnetic = (rand() / (float)RAND_MAX) * 2.0f - 1.0f;
 		int sign = randMagnetic > 0 ? 1 : -1;
 		Magnetic = Mass * sign;
@@ -636,7 +661,7 @@ public:
 public:
 	static ID3D11Buffer* vertexBufferSphere;
 	static int TotalBalls;
-	
+
 	FVector Location;
 	FVector Velocity;
 	float Radius = 0.1f;
@@ -734,7 +759,7 @@ public:
 	}
 
 	void CollisionCheck(float elastic, bool bCombination)
-	{ 
+	{
 		for (int i = 0; i < Size; ++i)
 		{
 			for (int j = i + 1; j < Size; ++j)
@@ -757,13 +782,13 @@ public:
 
 					if (bCombination && mergeCount < 1024)
 					{
-						mergeList[mergeCount] = {i, j};
+						mergeList[mergeCount] = { i, j };
 						mergeCount++;
 					}
 					//Combine이 아니거나 mergeCount가 최대 merge보다 클 때
 					else
 					{
- 						float dist = sqrt(dist2);
+						float dist = sqrt(dist2);
 						FVector normal = (pos2 - pos1);
 						normal.Normalize();
 
@@ -794,78 +819,11 @@ public:
 					}
 				}
 			}
-		} 
+		}
 
 		Combination();
 	}
-
-	void Gravity(bool bAirForce, bool bWindForce, const float Cd, const FVector& windForce)
-	{
-		if (bAirForce)
-		{
-			for (int i = 0; i < Size; ++i)
-			{
-				UPrimitive* primitive = primitives[i];
-
-				float rho = 1.204; // 공기 밀도
-				float area = pow(primitive->GetRadius(), 2) * 3.14; //단면적
-
-				FVector velocity = primitive->GetVelocity();
-
-				//바람 속도 추가 
-				if (bAirForce)
-				{
-					velocity += windForce;
-				}
-				float speed = velocity.Magnitude();
-				//velocity.Normalize(); // normalize를 하면 속도가 너무 커져서 제외 or clamping도 방법
-
-				float mass = primitive->GetMass();
-
-				//공기저항력 공식사용 
-				FVector drag = velocity * (-0.5f * rho * Cd * area * speed * speed);
-
-				FVector gravity = FVector(0, -0.01f, 0) * mass;
-				FVector acceleration = (drag + gravity) / mass;
-
-
-				primitive->SetVelocity(primitive->GetVelocity() + acceleration);
-
-			}
-		}
-		else
-		{
-			for (int i = 0; i < Size; ++i)
-			{
-				UPrimitive* primitive = primitives[i];
-				FVector velocity = primitive->GetVelocity();
-
-				//바람 속도 추가
-				if (bWindForce)
-				{
-					velocity += windForce;
-				}
-
-				// 중력 외 힘이 없다면 
-				// a = g
-				velocity.y = velocity.y - 0.01f;
-				primitive->SetVelocity(velocity);
-			}
-		}
-	}
-
-	// 속도의 합으로 쉽게 바람을 흉내
-	void WindForce(const FVector& windForce)
-	{
-		for (int i = 0; i < Size; ++i)
-		{
-			UPrimitive* primitive = primitives[i];
-			FVector velocity = primitive->GetVelocity();
-			velocity += windForce;
-			primitive->SetVelocity(velocity);
-		}
-	}
-
+	  
 	// 쿨룽 식으로 자기력 효과 
 	// 거리 제곱에 반비례
 	void MagneticForce()
@@ -888,10 +846,10 @@ public:
 				dist2 = dist2 == 0 ? 1e-5 : dist2;
 				float force = q1 * q2 * k / dist2;
 
-				FVector normal = a->GetLocation() - b->GetLocation(); 
+				FVector normal = a->GetLocation() - b->GetLocation();
 				//normal.Normalize(); // normalize해주면 너무 커질 수 있으니 패스
 
-				totalMagneticForce += normal* force;
+				totalMagneticForce += normal * force;
 			}
 			FVector acceleration = totalMagneticForce / a->GetMass();
 
@@ -901,11 +859,11 @@ public:
 
 	//일정 반지름 이하일 때 분할하도록 유도
 	void Explosion()
-	{  
-		for( int i = 0; i < Size; ++i)
+	{
+		for (int i = 0; i < Size; ++i)
 		{
 			UPrimitive* primitive = primitives[i];
-			if(primitive->GetRadius() > 0.05f)
+			if (primitive->GetRadius() > 0.05f)
 			{
 				primitive->SetDivide(true);
 			}
@@ -914,14 +872,14 @@ public:
 		for (int i = 0; i < Size; ++i)
 		{
 			UPrimitive* primitive = primitives[i];
-			if(primitive->GetDivide())
-			{ 
+			if (primitive->GetDivide())
+			{
 				FVector location = primitive->GetLocation();
 				FVector velocity = primitive->GetVelocity();
 				float radius = primitive->GetRadius() * 0.5f;
 
 				//새로운 공 생성
-				UPrimitive* newBall1 = new UBall(radius); 
+				UPrimitive* newBall1 = new UBall(radius);
 				newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
 				newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
 				push_back(newBall1);
@@ -930,15 +888,15 @@ public:
 				newBall2->SetLocation(FVector(location.x - radius, location.y, location.z));
 				newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
 				push_back(newBall2);
-					
+
 				//기존 공 제거
 				delete primitive;
 				primitives[i] = nullptr;
 				primitives[i] = primitives[Size - 1];
 				primitives[i]->SetDivide(false);
-				Size--; 
+				Size--;
 			}
-		} 
+		}
 	}
 
 	void Combination()
@@ -964,7 +922,7 @@ public:
 		{
 			int indexA = mergeList[i].indexA;
 			int indexB = mergeList[i].indexB;
-			 
+
 			//안에 있는 index 중에서도 큰 값먼저 계산하기 위함
 			if (indexA < indexB)
 			{
@@ -990,10 +948,10 @@ public:
 			float radiusB = b->GetRadius();
 
 
-			delete a; 
+			delete a;
 			primitives[indexA] = primitives[Size - 1];
 			Size--;
-			
+
 			delete b;
 			primitives[indexB] = primitives[Size - 1];
 			Size--;
@@ -1018,9 +976,9 @@ public:
 
 	UPrimitive** primitives = nullptr;
 	int Capacity = 0;
-	int Size = 0; 
+	int Size = 0;
 
-	Merge mergeList[1024] = {-1, -1};// 1충돌당 2개의 구가 필요하다고 하면, 1024면 넉넉할 것으로 예상, 만약 1024번을 넘기면 그냥 충돌로 처리
+	Merge mergeList[1024] = { -1, -1 };// 1충돌당 2개의 구가 필요하다고 하면, 1024면 넉넉할 것으로 예상, 만약 1024번을 넘기면 그냥 충돌로 처리
 	int mergeCount = 0;
 };
 
@@ -1064,18 +1022,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
-
-	bool bGravity = false;
-	bool bAirForce = false;
-	bool bWindForce = false;
+	
 	bool bMagnetic = false;
 
 	bool bExplosion = false;
 	bool bCombination = false;
 
 
-	float elastic = 0.5f;
-	float Cd = 0.275;
+	float elastic = 1.f; 
 	FVector windForce(0.0f, 0.0f, 0.0f);
 	const int targetFPS = 30;
 	const float deltaTime = 1.0 / targetFPS;
@@ -1120,20 +1074,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		//collision check
 		PrimitiveVector.CollisionCheck(elastic, bCombination);
-
-		//Gravity
-		if (bGravity)
-		{
-			PrimitiveVector.Gravity(bAirForce, bWindForce, Cd, windForce);
-		}
-		else
-		{
-			if (bWindForce)
-			{
-				PrimitiveVector.WindForce(windForce);
-			}
-		}
-
+		 
 		//Magnetic
 		if (bMagnetic)
 		{
@@ -1144,13 +1085,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector.Explosion();
 			bExplosion = false;
 		}
- 
+
 		DesireNumberOfBalls = PrimitiveVector.size(); // 업데이트 후 공의 개수 최신화
 
 		// Frame Update
 		renderer.Prepare();
 		renderer.PrepareShader();
-		 
+
 		for (int i = 0; i < PrimitiveVector.size(); i++)
 		{
 			renderer.UpdateConstant(PrimitiveVector[i]->GetLocation(), PrimitiveVector[i]->GetRadius());
@@ -1165,50 +1106,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render() 사이에
 		ImGui::Begin("Jungle Property Window");
 		ImGui::Text("Hello Jungle World!");
-		 
 
-		ImGui::PushItemWidth(100);
-		ImGui::InputInt("##BallCountInput", &DesireNumberOfBalls, 1);
-		ImGui::SameLine();
-
-		DesireNumberOfBalls = DesireNumberOfBalls < 1 ? 1 : DesireNumberOfBalls;
-
-		while (PrimitiveVector.size() < DesireNumberOfBalls)
-		{
-			PrimitiveVector.push_back(new UBall());
-		}
-		while (PrimitiveVector.size() > DesireNumberOfBalls)
-		{
-			PrimitiveVector.pop_random();
-		}
-
-		ImGui::SameLine();
-		ImGui::Text("Number of Balls");
-
-
-		ImGui::SliderFloat("##ElasticitySlider", &elastic, 0.0f, 1.0f, "%.1f");
-		ImGui::SameLine();
-		ImGui::Text("Ball Elasticity");
-
-		ImGui::Checkbox("Gravity Only, No other Force", &bGravity);
-
-		ImGui::SliderFloat("##Cd: 공기저항계수", &Cd, 0.0f, 500.0f, "%0.5f");
-		ImGui::SameLine();
-		ImGui::Checkbox("AirForce", &bAirForce);
-
-		ImGui::SliderFloat2("##WindForce", &windForce.x, -0.02f, 0.02f, "%.3f");
-		ImGui::SameLine();
-		ImGui::Checkbox("WindForce", &bWindForce);
-		
+		    
 		ImGui::Checkbox("Manentic ", &bMagnetic);
 
 		if (ImGui::Button("Explore"))
 		{
-			bExplosion = !bExplosion; 
+			bExplosion = !bExplosion;
 		}
 
 		ImGui::Checkbox("Combine", &bCombination);
-		
+
 
 		ImGui::End();
 

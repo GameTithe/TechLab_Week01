@@ -74,9 +74,15 @@
     <ClInclude Include="Sphere.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="UIInfo.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="ShaderW0.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="UI.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>
