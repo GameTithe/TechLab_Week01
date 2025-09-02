@@ -21,9 +21,9 @@
 
 // UI
 #include "UIInfo.h"
-#include <iostream> // cout ����� ����
-#include <ctime>    // time() �Լ��� ����
-#include <cstdlib>  // srand(), rand() �Լ��� ����
+#include <iostream> // cout 사용을 위해
+#include <ctime>    // time() 함수를 위해
+#include <cstdlib>  // srand(), rand() 함수를 위해
 #include <cstdlib>
 
 HWND hWnd = nullptr;
@@ -168,15 +168,15 @@ struct FVector
 	}
 };
 
-// �Ӽ��� ��Ÿ���� ���� ������(enum) ����
+// 속성을 나타내기 위한 열거형(enum) 정의
 enum EAttribute
 {
-	WATER, // ��
-	FIRE,  // ��
-	GRASS  // Ǯ
+	WATER, // 물
+	FIRE,  // 불
+	GRASS  // 풀
 };
 
-// �Ӽ� ���� üũ�ϴ� ����� �Լ�
+// 속성 상성을 체크하는 도우미 함수
 bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
 {
 	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
@@ -554,10 +554,10 @@ public:
 	float RenderScale = 1.0f;
 	float TargetRenderScale = 1.0f;
 
-	float RefRadius = 0.2f;    // RenderScale = 1.0 ����
-	float MinScale = 0.15f;    // ������ ���Ѽ� (�ʹ� �۾����� ��ó�� ������ �ʰ�)
-	float MaxScale = 2.0f;     // ������ ���Ѽ� (������ ���� ����)
-	float SmoothT = 0.2f;      // Lerp ����
+	float RefRadius = 0.2f;    // RenderScale = 1.0 기준
+	float MinScale = 0.15f;    // 스케일 하한선 (너무 작아져서 점처럼 보이지 않게)
+	float MaxScale = 2.0f;     // 스케일 상한선 (과도한 줌 인 방지)
+	float SmoothT = 0.2f;      // Lerp 비율
 public:
 	void SetLocation(FVector location)
 	{
@@ -568,7 +568,7 @@ public:
 	{
 		SetLocation(Player->GetLocation());
 
-		// ���� ������ �������� ��ǥ �������� ���� ���������� ����
+		// 실제 렌더링 스케일을 목표 스케일을 향해 점진적으로 조정
 		if (RenderScale != TargetRenderScale)
 		{
 			float playerRadius = std::max(Player->GetRadius(), 0.001f);
@@ -749,20 +749,20 @@ public:
 class UPlayer : public UPrimitive
 {
 public:
-	// ������: �÷��̾� ���� �� ȣ���
+	// 생성자: 플레이어 생성 시 호출됨
 	UPlayer()
 	{
 		// 1. �÷��̾� �Ӽ��� �������� ����
-		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 �� �ϳ��� �������� �̾� �Ӽ����� ����
+		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 중 하나를 랜덤으로 뽑아 속성으로 지정
 
 		Radius = 0.08f; // �ʱ� ũ��
 		Mass = Radius * 10.0f;
-		Location = FVector(0.0f, 0.0f, 0.0f); // ȭ�� �߾ӿ��� ����
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // �ӵ��� ���콺�� �����Ƿ� 0���� ����
+		Location = FVector(0.0f, 0.0f, 0.0f); // 화면 중앙에서 시작
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // 속도는 마우스를 따르므로 0으로 시작
 		Score = 0;
 	}
 
-	// UPrimitive�� ��Ģ(���� ���� �Լ�)�� ���� ��� �Լ��� ����
+	// UPrimitive의 규칙(순수 가상 함수)에 따라 모든 함수를 구현
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 
@@ -771,26 +771,26 @@ public:
 
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// ��Ģ�� ���� GetAttribute �Լ��� ����
+	// 규칙에 따라 GetAttribute 함수를 구현
 	virtual EAttribute GetAttribute() const override { return Attribute; }
-	// ������ �ʴ� ��ɵ��� �⺻ ���·� ����
+	// 사용되지 않는 기능들은 기본 형태로 구현
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// �÷��̾��� �ٽ� ����: ���콺�� ���� ������
+	// 플레이어의 핵심 로직: 마우스를 따라 움직임
 	virtual void Movement() override
 	{
-		extern HWND hWnd; // WinMain�� hWnd�� �ܺο��� ����
+		extern HWND hWnd; // WinMain의 hWnd를 외부에서 참조
 
 		POINT mousePos;
-		GetCursorPos(&mousePos); // ���콺�� ��ũ�� ��ǥ�� ����
-		ScreenToClient(hWnd, &mousePos); // ��ũ�� ��ǥ�� ���α׷� â ���� ��ǥ�� ��ȯ
+		GetCursorPos(&mousePos); // 마우스의 스크린 좌표를 얻음
+		ScreenToClient(hWnd, &mousePos); // 스크린 좌표를 프로그램 창 내부 좌표로 변환
 
 		RECT clientRect;
-		GetClientRect(hWnd, &clientRect); // ���α׷� â�� ũ�⸦ ����
+		GetClientRect(hWnd, &clientRect); // 프로그램 창의 크기를 얻음
 
-		// â ���� ��ǥ(e.g., 0~1024)�� ���� ���� ��ǥ(-1.0 ~ 1.0)�� ��ȯ
+		// 창 내부 좌표(e.g., 0~1024)를 게임 월드 좌표(-1.0 ~ 1.0)로 변환
 		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
 		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
 
@@ -798,13 +798,13 @@ public:
 		Location.y = worldY;
 	}
 
-	// ũ��� ������ �����ϴ� ���ο� �Լ���
+	// 크기와 점수를 조절하는 새로운 함수들
 	void AddScore(int amount) { Score += amount; }
 	int GetScore() const { return Score; }
 	void SetRadius(float newRadius)
 	{
 		Radius = newRadius;
-		// ũ�Ⱑ ���ϸ� ������ ���� ������Ʈ
+		// 크기가 변하면 질량도 같이 업데이트
 		Mass = Radius * 10.0f;
 	}
 
@@ -821,10 +821,10 @@ public:
 class UEnemy : public UPrimitive
 {
 public:
-	// ������: ENEMY ���� �� ȣ���
+	// 생성자: ENEMY 생성 시 호출됨
 	UEnemy()
 	{
-		// ������ �Ӽ�, ��ġ, �ӵ�, ũ�� ����
+		// 무작위 속성, 위치, 속도, 크기 설정
 		Attribute = (EAttribute)(rand() % 3);
 		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
 
@@ -832,11 +832,11 @@ public:
 		Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
 		Velocity.y = (float)(rand() % 100 - 50) * enemySpeed;
 
-		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f; // �ּ�, �ִ� ũ�� ����
+		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;  // 최소, 최대 크기 지정
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitive�� ��Ģ�� ���� ��� �Լ��� ����
+	// UPrimitive의 규칙에 따라 모든 함수를 구현
 
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
@@ -844,13 +844,13 @@ public:
 	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// ��Ģ�� ���� GetAttribute �Լ��� ����
+	// 규칙에 따라 GetAttribute 함수를 구현
 	virtual EAttribute GetAttribute() const override { return Attribute; }
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// ENEMY�� ������: ���� UBalló�� ���� ƨ��
+	// ENEMY의 움직임: 기존 UBall처럼 벽에 튕김
 	virtual void Movement() override
 	{
 		Location += Velocity;
@@ -877,18 +877,18 @@ public:
 class UPrey : public UPrimitive
 {
 public:
-	// ������: PREY ���� �� ȣ���
+	// 생성자: PREY 생성 시 호출됨
 	UPrey()
 	{
-		// ������ �Ӽ�, ��ġ, ũ�� ����
+		// 무작위 속성, 위치, 크기 설정
 		Attribute = (EAttribute)(rand() % 3);
 		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // �������� �����Ƿ� �ӵ��� 0
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // 움직이지 않으므로 속도는 0
 		Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitive�� ��Ģ�� ���� ��� �Լ��� ����
+	// UPrimitive의 규칙에 따라 모든 함수를 구현
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 	virtual FVector GetVelocity() const override { return Velocity; }
@@ -900,10 +900,10 @@ public:
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// PREY�� ������: �������� ����
+	// PREY의 움직임: 움직이지 않음
 	virtual void Movement() override
 	{
-		// �ƹ� �ڵ嵵 ����
+		// 아무 코드도 없음
 	}
 
 public:
@@ -915,7 +915,7 @@ public:
 };
 
 //int UBall::TotalBalls = 0;
-//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static ��� ���� �ʱ�ȭ\
+//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
 
 
 class Controller
@@ -959,7 +959,7 @@ public:
 
 		for (int i = 0; i < Count; ++i)
 		{
-			// NRE ���
+			// NRE 대비
 			UPlayer* Cell = PlayerCells[i];
 			if (!Cell)
 			{
@@ -971,13 +971,13 @@ public:
 			CenterY += Location.y * Mass;
 		}
 
-		// Fallback: ���� ���� ���� 0�� ��� ���� ���� �������� ��� ��ġ ���
+		// Fallback: 질량 합이 거의 0인 경우 오차 방지 차원에서 평균 위치 사용
 		if (TotalMass < 1e-6)
 		{
 			CenterX = CenterY = 0.0f;
 			for (int i = 0; i < Count; ++i)
 			{
-				// NRE ���
+				// NRE 대비
 				UPlayer* Cell = PlayerCells[i];
 				if (!Cell)
 				{
@@ -1006,7 +1006,7 @@ struct Merge
 class FPrimitiveVector
 {
 public:
-	// �÷��̾� ��ü�� ���� �����ϱ� ���� ������
+	// 플레이어 객체에 쉽게 접근하기 위한 포인터
 	UPlayer* Player = nullptr;
 
 	FPrimitiveVector()
@@ -1032,8 +1032,8 @@ public:
 			ReSize();
 		}
 
-		// ���� �߰��Ǵ� ��ü�� �÷��̾���, Player �����Ϳ� ����
-		// dynamic_cast�� UPrimitive*�� UPlayer*�� �����ϰ� ��ȯ �õ�
+		// 만약 추가되는 객체가 플레이어라면, Player 포인터에 저장
+		// dynamic_cast는 UPrimitive*를 UPlayer*로 안전하게 변환 시도
 		UPlayer* playerCandidate = dynamic_cast<UPlayer*>(primitive);
 		if (playerCandidate != nullptr)
 		{
@@ -1067,16 +1067,16 @@ public:
 	}
 	void RemoveAt(int index)
 	{
-		// ��ȿ���� ���� �ε����� ��� ����
+		// 유효하지 않은 인덱스면 즉시 종료
 		if (index < 0 || index >= Size)
 		{
 			return;
 		}
 
-		// ��ü �޸� ����
+		// 객체 메모리 해제
 		delete primitives[index];
 
-		// ������ ���Ҹ� ���� ��ġ�� �̵� (���� ���� ���� ���)
+		// 마지막 원소를 현재 위치로 이동 (가장 빠른 제거 방법)
 		primitives[index] = primitives[Size - 1];
 		primitives[Size - 1] = nullptr;
 		Size--;
@@ -1111,12 +1111,12 @@ public:
 	}
 	void ProcessGameLogic()
 	{
-		if (Player == nullptr) return; // �÷��̾ ������ �ƹ��͵� �� ��
+		if (Player == nullptr) return; // 플레이어가 없으면 아무것도 안 함
 
-		// �迭�� �Ųٷ� ��ȸ�ؾ� ��ü ���� �ÿ��� ������
+		// 배열을 거꾸로 순회해야 객체 제거 시에도 안전함
 		for (int i = Size - 1; i >= 0; --i)
 		{
-			// �ڱ� �ڽ�(�÷��̾�)���� �浹 �˻縦 ���� ����
+			// 자기 자신(플레이어)과는 충돌 검사를 하지 않음
 			if (primitives[i] == Player)
 			{
 				continue;
@@ -1126,26 +1126,27 @@ public:
 			float dist2 = FVector::Distance2(Player->GetLocation(), other->GetLocation());
 			float minDist = Player->GetRadius() + other->GetRadius();
 
-			// �浹�ߴٸ�
+			// 충돌했다면
 			if (dist2 < minDist * minDist)
 			{
-				// �̱�� ������ üũ
+				// 이기는 상성인지 체크
 				if (CheckWin(Player->GetAttribute(), other->GetAttribute()))
 				{
 					Player->AddScore(10);
 					Player->SetRadius(Player->GetRadius() + 0.005f); // ũ�� ����
 				}
-				else // ���ų� ���� ��
+				else // 지거나 비기는 상성
 				{
 					Player->AddScore(-5);
 					Player->SetRadius(Player->GetRadius() - 0.005f); // ũ�� ����
 				}
 
-				// �浹�� ��ü�� ����
+				// 충돌한 객체는 제거
 				RemoveAt(i);
 			}
 		}
 	}
+
 	//void CollisionCheck(float elastic, bool bCombination)
 	//{
 	//	for (int i = 0; i < Size; ++i)
@@ -1164,7 +1165,7 @@ public:
 	//			float dist2 = FVector::Distance2(pos2, pos1);
 	//			float minDist = radius1 + radius2;
 
-	//			// ���� ���� �浹ó�� sqrt ����� ��α� ������ squre�Ǿ��ִ� ���¿��� �Ÿ� ��
+	//			// 구와 구의 충돌처리 sqrt 비용이 비싸기 때문에 squre되어있는 상태에서 거리 비교
 	//			if (dist2 < minDist * minDist)
 	//			{
 
@@ -1173,7 +1174,7 @@ public:
 	//					mergeList[mergeCount] = { i, j };
 	//					mergeCount++;
 	//				}
-	//				//Combine�� �ƴϰų� mergeCount�� �ִ� merge���� Ŭ ��
+	//				//Combine이 아니거나 mergeCount가 최대 merge보다 클 때
 	//				else
 	//				{
 	//					float dist = sqrt(dist2);
@@ -1186,7 +1187,7 @@ public:
 	//					FVector relativeVelocity = velocityOfB - velocityOfA;
 	//					float speed = Dot(relativeVelocity, normal);
 
-	//					// ��� �ӵ��� �浹�� ������ ������ ���� ���� ��ݷ� ���
+	//					// 상대 속도와 충돌된 구와의 방향이 같을 때만 충격량 계산
 	//					if (speed < 0.0f)
 	//					{
 	//						float massOfA = a->GetMass();
@@ -1199,7 +1200,7 @@ public:
 	//						b->SetVelocity(velocityOfB + J / massOfB);
 	//					}
 
-	//					// ��ġ ����
+	//					// 위치 보정
 	//					float penetration = minDist - dist;
 	//					FVector correction = normal * (penetration * 0.5f);
 	//					a->SetLocation(pos1 - correction);
@@ -1210,8 +1211,8 @@ public:
 	//	}
 	//}
 
-	// ��� ������ �ڱ�� ȿ�� 
-	// �Ÿ� ������ �ݺ��
+	// 쿨룽 식으로 자기력 효과 
+	// 거리 제곱에 반비례
 	void MagneticForce()
 	{
 		for (int i = 0; i < Size; ++i)
@@ -1243,7 +1244,7 @@ public:
 		}
 	}
 
-	////���� ������ ������ �� �����ϵ��� ����
+	////일정 반지름 이하일 때 분할하도록 유도
 	//void Explosion()
 	//{
 	//	for (int i = 0; i < Size; ++i)
@@ -1264,7 +1265,7 @@ public:
 	//			FVector velocity = primitive->GetVelocity();
 	//			float radius = primitive->GetRadius() * 0.5f;
 
-	//			//���ο� �� ����
+	//			//새로운 공 생성
 	//			UPrimitive* newBall1 = new UBall(radius);
 	//			newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
 	//			newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
@@ -1275,7 +1276,7 @@ public:
 	//			newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
 	//			push_back(newBall2);
 
-	//			//���� �� ����
+	//			//기존 공 제거
 	//			delete primitive;
 	//			primitives[i] = nullptr;
 	//			primitives[i] = primitives[Size - 1];
@@ -1287,7 +1288,7 @@ public:
 
 	//void Combination()
 	//{
-	//	//ū index���� ó���� ���ؼ� ����
+	//	//큰 index먼저 처리를 위해서 정렬
 	//	for (int i = 0; i < mergeCount - 1; ++i)
 	//	{
 	//		for (int j = i + 1; j < mergeCount; ++j)
@@ -1295,7 +1296,7 @@ public:
 	//			int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
 	//			int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
 
-	//			if (maxI < maxJ) // �������� ����
+	//			if (maxI < maxJ) // 내림차순 정렬
 	//			{
 	//				Merge temp = mergeList[i];
 	//				mergeList[i] = mergeList[j];
@@ -1309,7 +1310,7 @@ public:
 	//		int indexA = mergeList[i].indexA;
 	//		int indexB = mergeList[i].indexB;
 
-	//		//�ȿ� �ִ� index �߿����� ū ������ ����ϱ� ����
+	//		//안에 있는 index 중에서도 큰 값먼저 계산하기 위함
 	//		if (indexA < indexB)
 	//		{
 	//			int temp = indexA;
@@ -1317,7 +1318,7 @@ public:
 	//			indexB = temp;
 	//		}
 
-	//		//����ó�� 
+	//		//예외처리 
 	//		if (indexA == -1 || indexB == -1)
 	//		{
 	//			continue;
@@ -1437,7 +1438,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// 윈도우 클래스 등록
 	RegisterClassW(&wndClass);
 
-	// 1024 * 1024 ũ���� ������ ����
+	// 1024 * 1024 크기의 윈도우 생성
 	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
@@ -1461,18 +1462,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	FPrimitiveVector PrimitiveVector;
 
-	// �÷��̾� ���� �� �߰�
+	// 플레이어 생성 및 추가
 	UPlayer* player = new UPlayer();
 	PrimitiveVector.push_back(player);
 
-	// �ʱ� ENEMY�� PREY ����
+	// 초기 ENEMY와 PREY 생성
 	for (int i = 0; i < 10; ++i)
 	{
 		PrimitiveVector.push_back(new UEnemy());
 		PrimitiveVector.push_back(new UPrey());
 	}
 
-	//// ���� ���� Vertex Buffer�� �� ���� ���� �� ����
+	//// 구에 관한 Vertex Buffer는 한 번만 생성 후 재사용
 	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
@@ -1495,7 +1496,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0f;
 
-	//// �� �ϳ� �߰��ϰ� ����
+	//// 공 하나 추가하고 시작
 	//FPrimitiveVector PrimitiveVector;
 	//UBall* ball = new UBall();
 	//PrimitiveVector.push_back(ball);
@@ -1531,7 +1532,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		PrimitiveVector.ProcessGameLogic();
 
-		// 2. ī�޶� �÷��̾ ���󰡵��� ������Ʈ
+		// 2. 카메라가 플레이어를 따라가도록 업데이트
 		cam->UpdateCamera(PrimitiveVector.Player);
 
 		////collision check
@@ -1548,7 +1549,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		//	bExplosion = false;
 		//}
 
-		//DesireNumberOfBalls = PrimitiveVector.size(); // ������Ʈ �� ���� ���� �ֽ�ȭ
+		//DesireNumberOfBalls = PrimitiveVector.size(); // 업데이트 후 공의 개수 최신화
 
 		// Frame Update
 		renderer.Prepare();
@@ -1568,7 +1569,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// 보이는 객체들만 렌더링
 		for (int idx : visiblePrimitives)
 		{
-			// ��ũ�� �󿡼��� ��ǥ�� ũ�� ���
+			// 스크린 상에서의 좌표와 크기 계산
 			UPrimitive* prim = PrimitiveVector[idx];
 			if (prim != nullptr)
 			{
@@ -1588,7 +1589,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 		ImGui::Text("Objects: %d", PrimitiveVector.size());
 
-		// �÷��̾� �Ӽ��� �ؽ�Ʈ�� �����ֱ�
+		// 플레이어 속성을 텍스트로 보여주기
 		if (PrimitiveVector.Player)
 		{
 			EAttribute attr = PrimitiveVector.Player->GetAttribute();
@@ -1596,7 +1597,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui::Text("Player Attribute: %s", attrText);
 		}
 		ImGui::End();
-		// �����������
+		// ▲▲▲▲▲▲▲▲▲▲
 
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -1620,10 +1621,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
-	//// �Ҹ꿡 �ʿ��� �ڵ� 
+	//// 소멸에 필요한 코드 
 	//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
 
-	// WinMain���� ������ ���� ����
+	// WinMain에서 생성한 버퍼 해제
 	renderer.ReleaseVertexBuffer(vertexBufferSphere);
 	renderer.ReleaseConstantBuffer();
 
