@@ -1569,11 +1569,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		for (int idx : visiblePrimitives)
 		{
 			// ��ũ�� �󿡼��� ��ǥ�� ũ�� ���
-			UPrimitive* prim = PrimitiveVector[i];
-			FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
-			float renderedRadius = cam->GetCameraSpaceRadius(prim);
-			renderer.UpdateConstant(renderedLocation, renderedRadius);
-			renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+			UPrimitive* prim = PrimitiveVector[idx];
+			if (prim != nullptr)
+			{
+				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+				float renderedRadius = cam->GetCameraSpaceRadius(prim);
+				renderer.UpdateConstant(renderedLocation, renderedRadius);
+				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+			}
 		}
 
 		// ImGui Update
