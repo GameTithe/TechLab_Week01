@@ -24,7 +24,7 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// °¢Á¾ ¸Ş¼¼Áö¸¦ Ã³¸®ÇÒ ÇÔ¼ö
+// ê°ì¢… ë©”ì„¸ì§€ë¥¼ ì²˜ë¦¬í•  í•¨ìˆ˜
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
@@ -173,34 +173,34 @@ inline float Dot(const FVector& v1, const FVector& v2)
 class URenderer
 {
 public:
-	// D3D11 Device, Device Context, Swap ChainÀ» °ü¸®ÇÏ±â À§ÇÑ Æ÷ÀÎÅÍµé 
-	ID3D11Device* Device = nullptr;						//Gpu¿Í Åë½Å ÇÏ±â À§ÇÑ Device
-	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU ¸í·É ½ÇÇàÀ» ´ã´çÇÏ´Â Context
-	IDXGISwapChain* SwapChain = nullptr;				// ÇÁ·¹ÀÎ ¹öÅÍ¸¦ ±³Ã¼ÇÏ´Â µ¥ »ç¿ëµÇ´Â Swap Chain
+	// D3D11 Device, Device Context, Swap Chainì„ ê´€ë¦¬í•˜ê¸° ìœ„í•œ í¬ì¸í„°ë“¤ 
+	ID3D11Device* Device = nullptr;						//Gpuì™€ í†µì‹  í•˜ê¸° ìœ„í•œ Device
+	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU ëª…ë ¹ ì‹¤í–‰ì„ ë‹´ë‹¹í•˜ëŠ” Context
+	IDXGISwapChain* SwapChain = nullptr;				// í”„ë ˆì¸ ë²„í„°ë¥¼ êµì²´í•˜ëŠ” ë° ì‚¬ìš©ë˜ëŠ” Swap Chain
 
-	// ·»´õ¸µ¿¡ ÇÊ¿äÇÑ ¸®¼Ò½º ¹× »óÅÂ¸¦ °ü¸®ÇÏ±â À§ÇÑ º¯¼öµé 
-	ID3D11Texture2D* FrameBuffer = nullptr;					// È­¸é Ãâ·Â¿ë
-	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// ÅØ½ºÃ³¸¦ ·»ÅÍ Å¸°ÙÀ¸·Î »ç¿ëÇÏ´Â ºä
-	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer »óÅÂ (ÄÃ¸µ, Ã¤¿ì±â ¸ğµå µî) 
-	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (¼ÎÀÌ´õ¿¡ Àü´ŞÇÒ µ¥ÀÌÅÍ ÀúÀå¿ë)
+	// ë Œë”ë§ì— í•„ìš”í•œ ë¦¬ì†ŒìŠ¤ ë° ìƒíƒœë¥¼ ê´€ë¦¬í•˜ê¸° ìœ„í•œ ë³€ìˆ˜ë“¤ 
+	ID3D11Texture2D* FrameBuffer = nullptr;					// í™”ë©´ ì¶œë ¥ìš©
+	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// í…ìŠ¤ì²˜ë¥¼ ë Œí„° íƒ€ê²Ÿìœ¼ë¡œ ì‚¬ìš©í•˜ëŠ” ë·°
+	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer ìƒíƒœ (ì»¬ë§, ì±„ìš°ê¸° ëª¨ë“œ ë“±) 
+	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (ì…°ì´ë”ì— ì „ë‹¬í•  ë°ì´í„° ì €ì¥ìš©)
 
 
 	//UI
 	ID3D11VertexShader* UIVS = nullptr;
 	ID3D11PixelShader* UIPS = nullptr;
 	ID3D11InputLayout* UIInputLayout = nullptr;
-	ID3D11Buffer* UIVertexBuffer = nullptr;  // µ¿Àû VB
+	ID3D11Buffer* UIVertexBuffer = nullptr;  // ë™ì  VB
 	ID3D11Buffer* UIPerFrameCB = nullptr;
 	ID3D11ShaderResourceView* UISRV = nullptr;
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
 	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
-	D3D11_VIEWPORT ViewportInfo;	// ·»´õ¸µ ¿µ¿ªÀ» Á¤ÀÇÇÏ´Â ºäÆ÷Æ® Á¤º¸ 
+	D3D11_VIEWPORT ViewportInfo;	// ë Œë”ë§ ì˜ì—­ì„ ì •ì˜í•˜ëŠ” ë·°í¬íŠ¸ ì •ë³´ 
 
 public:
 
-	// ·»´õ·¯ ÃÊ±âÈ­ ÇÔ¼ö
+	// ë Œë”ëŸ¬ ì´ˆê¸°í™” í•¨ìˆ˜
 	void Create(HWND hWindow)
 	{
 		CreateDeviceAndSwapChain(hWindow);
@@ -209,33 +209,33 @@ public:
 
 		CreateRasterizerState();
 
-		// depth/stencil buffer & blend state´Â ´Ù·çÁö ¾ÊÀ½ 
+		// depth/stencil buffer & blend stateëŠ” ë‹¤ë£¨ì§€ ì•ŠìŒ 
 	}
 
 
 	void CreateDeviceAndSwapChain(HWND hWindow)
 	{
-		// Áö¿øÇÏ´Â Direct3D ±â´É ·¹º§À» Á¤ÀÇ 
+		// ì§€ì›í•˜ëŠ” Direct3D ê¸°ëŠ¥ ë ˆë²¨ì„ ì •ì˜ 
 		D3D_FEATURE_LEVEL featurelevels[] = { D3D_FEATURE_LEVEL_11_0 };
 
 		// Swap Chain 
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-		swapChainDesc.BufferDesc.Width = 0; //Ã¢ Å©±â¿¡ ¸Â±â ÀÚµ¿Á¶Á¤
-		swapChainDesc.BufferDesc.Height = 0; //Ã¢ Å©±â¿¡ ¸Â±â ÀÚµ¿Á¶Á¤	
-		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // ÀÏ¹İÀûÀÎ RGBA Æ÷¸Ë
-		swapChainDesc.SampleDesc.Count = 1; // ¸ÖÆ¼ »ùÇÃ¸µÀ» »ç¿ëÇÏÁö ¾ÊÀ½
-		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // ·»´õ Å¸°ÙÀ¸·Î »ç¿ë
-		swapChainDesc.BufferCount = 2; // ´õºí ¹öÆÛ¸µ
+		swapChainDesc.BufferDesc.Width = 0; //ì°½ í¬ê¸°ì— ë§ê¸° ìë™ì¡°ì •
+		swapChainDesc.BufferDesc.Height = 0; //ì°½ í¬ê¸°ì— ë§ê¸° ìë™ì¡°ì •	
+		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // ì¼ë°˜ì ì¸ RGBA í¬ë§·
+		swapChainDesc.SampleDesc.Count = 1; // ë©€í‹° ìƒ˜í”Œë§ì„ ì‚¬ìš©í•˜ì§€ ì•ŠìŒ
+		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // ë Œë” íƒ€ê²Ÿìœ¼ë¡œ ì‚¬ìš©
+		swapChainDesc.BufferCount = 2; // ë”ë¸” ë²„í¼ë§
 		swapChainDesc.OutputWindow = hWindow;
-		swapChainDesc.Windowed = TRUE; // Ã¢ ¸ğµå 
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ½º¿Ò ¹æ½Ä
+		swapChainDesc.Windowed = TRUE; // ì°½ ëª¨ë“œ 
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ìŠ¤ì™‘ ë°©ì‹
 
 		// Create Dircet Deivce & Swap Chain
 		D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
-			D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
-			featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
+									  D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
+									  featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
-		// SwapChain  Á¤º¸ °¡Á®¿À±â
+		// SwapChain  ì •ë³´ ê°€ì ¸ì˜¤ê¸°
 		SwapChain->GetDesc(&swapChainDesc);
 
 		// Set Viewport
@@ -246,7 +246,7 @@ public:
 	{
 		if (DeviceContext)
 		{
-			DeviceContext->Flush(); // ³²¾ÆÀÖ´Â GPU ¸í·ÉÀ» ¸ğµÎ ½ÇÇà
+			DeviceContext->Flush(); // ë‚¨ì•„ìˆëŠ” GPU ëª…ë ¹ì„ ëª¨ë‘ ì‹¤í–‰
 		}
 
 		if (SwapChain)
@@ -264,13 +264,13 @@ public:
 
 	void CreateFrameBuffer()
 	{
-		// ¹é ¹öÃ³ ÅØ½ºÃ³ °¡Á®¿À±â
+		// ë°± ë²„ì²˜ í…ìŠ¤ì²˜ ê°€ì ¸ì˜¤ê¸°
 		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&FrameBuffer);
 
-		// RTV »ı¼º
+		// RTV ìƒì„±
 		D3D11_RENDER_TARGET_VIEW_DESC framebufferRTVdesc = {};
-		framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // ÀÏ¹İÀûÀÎ RGBA Æ÷¸Ë
-		framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D ÅØ½ºÃ³·Î ¼³Á¤	
+		framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // ì¼ë°˜ì ì¸ RGBA í¬ë§·
+		framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D í…ìŠ¤ì²˜ë¡œ ì„¤ì •	
 
 		Device->CreateRenderTargetView(FrameBuffer, &framebufferRTVdesc, &FrameBufferRTV);
 	}
@@ -292,8 +292,8 @@ public:
 	void CreateRasterizerState()
 	{
 		D3D11_RASTERIZER_DESC rasterizerDesc = {};
-		rasterizerDesc.FillMode = D3D11_FILL_SOLID; // Ã¤¿ì±â ¸ğµå  
-		rasterizerDesc.CullMode = D3D11_CULL_BACK; // ¹é ÆäÀÌ½º ÄÃ¸µ  
+		rasterizerDesc.FillMode = D3D11_FILL_SOLID; // ì±„ìš°ê¸° ëª¨ë“œ  
+		rasterizerDesc.CullMode = D3D11_CULL_BACK; // ë°± í˜ì´ìŠ¤ ì»¬ë§  
 
 		Device->CreateRasterizerState(&rasterizerDesc, &RasterizerState);
 	}
@@ -311,7 +311,7 @@ public:
 	{
 		RasterizerState->Release();
 
-		DeviceContext->OMSetRenderTargets(0, nullptr, nullptr); // ·»´õ Å¸°ÙÀ» ÃÊ±âÈ­
+		DeviceContext->OMSetRenderTargets(0, nullptr, nullptr); // ë Œë” íƒ€ê²Ÿì„ ì´ˆê¸°í™”
 
 
 		ReleaseFrameBuffer();
@@ -320,12 +320,12 @@ public:
 
 	void SwapBuffer()
 	{
-		SwapChain->Present(1, 0); // 1: VSync È°¼ºÈ­ => GPU ÇÁ·¹ÀÓ ¼Óµµ & È­¸é °»½Å ¼Óµµ µ¿±âÈ­
+		SwapChain->Present(1, 0); // 1: VSync í™œì„±í™” => GPU í”„ë ˆì„ ì†ë„ & í™”ë©´ ê°±ì‹  ì†ë„ ë™ê¸°í™”
 	}
 
 	void CreateUIResource()
 	{
-		//½¦ÀÌ´õ ÄÄÆÄÀÏ
+		//ì‰ì´ë” ì»´íŒŒì¼
 	}
 
 	void ReleaseUIResource()
@@ -358,8 +358,8 @@ public:
 			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		// vertesxShaderÀÇ ÀÔ·Â ½Ã±×´ÏÃ³¿Í È£È¯µÇ´ÂÁö È®ÀÎÇØ¾ßµÇ´Ï±î
-		// layout¿¡¼­ vertexShaderCSO¸¦ ÇÊ¿ä·ÎÇÔ 
+		// vertesxShaderì˜ ì…ë ¥ ì‹œê·¸ë‹ˆì²˜ì™€ í˜¸í™˜ë˜ëŠ”ì§€ í™•ì¸í•´ì•¼ë˜ë‹ˆê¹Œ
+		// layoutì—ì„œ vertexShaderCSOë¥¼ í•„ìš”ë¡œí•¨ 
 		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
@@ -454,9 +454,9 @@ public:
 
 	void CreateConstantBuffer()
 	{
-		// 16byte ´ÜÀ§·Î ¾ĞÃàÇØ¾ßµÊ 
+		// 16byte ë‹¨ìœ„ë¡œ ì••ì¶•í•´ì•¼ë¨ 
 		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16¹è¼ö Á¤·Ä 
+		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16ë°°ìˆ˜ ì •ë ¬ 
 		constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -671,7 +671,7 @@ public:
 	bool bDivide;
 };
 int UBall::TotalBalls = 0;
-ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static ¸â¹ö º¯¼ö ÃÊ±âÈ­
+ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static ë©¤ë²„ ë³€ìˆ˜ ì´ˆê¸°í™”
 
 class UCamera
 {
@@ -680,10 +680,10 @@ public:
 	float RenderScale = 1.0f;
 	float TargetRenderScale = 1.0f;
 
-	float RefRadius = 0.2f;    // RenderScale = 1.0 ±âÁØ
-	float MinScale = 0.15f;    // ½ºÄÉÀÏ ÇÏÇÑ¼± (³Ê¹« ÀÛ¾ÆÁ®¼­ Á¡Ã³·³ º¸ÀÌÁö ¾Ê°Ô)
-	float MaxScale = 2.0f;     // ½ºÄÉÀÏ »óÇÑ¼± (°úµµÇÑ ÁÜÀÎ ¹æÁö)
-	float SmoothT = 0.2f;      // Lerp ºñÀ²
+	float RefRadius = 0.2f;    // RenderScale = 1.0 ê¸°ì¤€
+	float MinScale = 0.15f;    // ìŠ¤ì¼€ì¼ í•˜í•œì„  (ë„ˆë¬´ ì‘ì•„ì ¸ì„œ ì ì²˜ëŸ¼ ë³´ì´ì§€ ì•Šê²Œ)
+	float MaxScale = 2.0f;     // ìŠ¤ì¼€ì¼ ìƒí•œì„  (ê³¼ë„í•œ ì¤Œì¸ ë°©ì§€)
+	float SmoothT = 0.2f;      // Lerp ë¹„ìœ¨
 public:
 	void SetLocation(FVector location)
 	{
@@ -694,7 +694,7 @@ public:
 	{
 		SetLocation(Player->GetLocation());
 
-		// ½ÇÁ¦ ·»´õ¸µ ½ºÄÉÀÏÀ» ¸ñÇ¥ ½ºÄÉÀÏÀ» ÇâÇØ Á¡ÁøÀûÀ¸·Î Á¶Á¤
+		// ì‹¤ì œ ë Œë”ë§ ìŠ¤ì¼€ì¼ì„ ëª©í‘œ ìŠ¤ì¼€ì¼ì„ í–¥í•´ ì ì§„ì ìœ¼ë¡œ ì¡°ì •
 		if (RenderScale != TargetRenderScale)
 		{
 			float playerRadius = std::max(Player->GetRadius(), 0.001f);
@@ -794,7 +794,7 @@ public:
 		primitives = newPrimitives;
 	}
 
-	int size() const // Ä¸½¶È­¸¦ ´ëºñÇØ¼­ ÇÔ¼ö·Î Á¢±Ù
+	int size() const // ìº¡ìŠí™”ë¥¼ ëŒ€ë¹„í•´ì„œ í•¨ìˆ˜ë¡œ ì ‘ê·¼
 	{
 		return Size;
 	}
@@ -826,7 +826,7 @@ public:
 				float dist2 = FVector::Distance2(pos2, pos1);
 				float minDist = radius1 + radius2;
 
-				// ±¸¿Í ±¸ÀÇ Ãæµ¹Ã³¸® sqrt ºñ¿ëÀÌ ºñ½Î±â ¶§¹®¿¡ squreµÇ¾îÀÖ´Â »óÅÂ¿¡¼­ °Å¸® ºñ±³
+				// êµ¬ì™€ êµ¬ì˜ ì¶©ëŒì²˜ë¦¬ sqrt ë¹„ìš©ì´ ë¹„ì‹¸ê¸° ë•Œë¬¸ì— squreë˜ì–´ìˆëŠ” ìƒíƒœì—ì„œ ê±°ë¦¬ ë¹„êµ
 				if (dist2 < minDist * minDist)
 				{
 
@@ -835,7 +835,7 @@ public:
 						mergeList[mergeCount] = { i, j };
 						mergeCount++;
 					}
-					//CombineÀÌ ¾Æ´Ï°Å³ª mergeCount°¡ ÃÖ´ë mergeº¸´Ù Å¬ ¶§
+					//Combineì´ ì•„ë‹ˆê±°ë‚˜ mergeCountê°€ ìµœëŒ€ mergeë³´ë‹¤ í´ ë•Œ
 					else
 					{
 						float dist = sqrt(dist2);
@@ -848,7 +848,7 @@ public:
 						FVector relativeVelocity = velocityOfB - velocityOfA;
 						float speed = Dot(relativeVelocity, normal);
 
-						// »ó´ë ¼Óµµ¿Í Ãæµ¹µÈ ±¸¿ÍÀÇ ¹æÇâÀÌ °°À» ¶§¸¸ Ãæ°İ·® °è»ê
+						// ìƒëŒ€ ì†ë„ì™€ ì¶©ëŒëœ êµ¬ì™€ì˜ ë°©í–¥ì´ ê°™ì„ ë•Œë§Œ ì¶©ê²©ëŸ‰ ê³„ì‚°
 						if (speed < 0.0f)
 						{
 							float massOfA = a->GetMass();
@@ -861,7 +861,7 @@ public:
 							b->SetVelocity(velocityOfB + J / massOfB);
 						}
 
-						// À§Ä¡ º¸Á¤
+						// ìœ„ì¹˜ ë³´ì •
 						float penetration = minDist - dist;
 						FVector correction = normal * (penetration * 0.5f);
 						a->SetLocation(pos1 - correction);
@@ -873,9 +873,9 @@ public:
 
 		Combination();
 	}
-	  
-	// Äğ·î ½ÄÀ¸·Î ÀÚ±â·Â È¿°ú 
-	// °Å¸® Á¦°ö¿¡ ¹İºñ·Ê
+
+	// ì¿¨ë£½ ì‹ìœ¼ë¡œ ìê¸°ë ¥ íš¨ê³¼ 
+	// ê±°ë¦¬ ì œê³±ì— ë°˜ë¹„ë¡€
 	void MagneticForce()
 	{
 		for (int i = 0; i < Size; ++i)
@@ -888,7 +888,7 @@ public:
 
 				UPrimitive* b = primitives[j];
 
-				float k = 0.001f; //¼öÄ¡ ¾ÈÁ¤À» À§ÇØ¼­ ÀÓÀÇ·Î Á¶Á¤
+				float k = 0.001f; //ìˆ˜ì¹˜ ì•ˆì •ì„ ìœ„í•´ì„œ ì„ì˜ë¡œ ì¡°ì •
 				float q1 = a->GetMagnetic();
 				float q2 = b->GetMagnetic();
 				float dist2 = FVector::Distance2(a->GetLocation(), b->GetLocation());
@@ -897,7 +897,7 @@ public:
 				float force = q1 * q2 * k / dist2;
 
 				FVector normal = a->GetLocation() - b->GetLocation();
-				//normal.Normalize(); // normalizeÇØÁÖ¸é ³Ê¹« Ä¿Áú ¼ö ÀÖÀ¸´Ï ÆĞ½º
+				//normal.Normalize(); // normalizeí•´ì£¼ë©´ ë„ˆë¬´ ì»¤ì§ˆ ìˆ˜ ìˆìœ¼ë‹ˆ íŒ¨ìŠ¤
 
 				totalMagneticForce += normal * force;
 			}
@@ -907,7 +907,7 @@ public:
 		}
 	}
 
-	//ÀÏÁ¤ ¹İÁö¸§ ÀÌÇÏÀÏ ¶§ ºĞÇÒÇÏµµ·Ï À¯µµ
+	//ì¼ì • ë°˜ì§€ë¦„ ì´í•˜ì¼ ë•Œ ë¶„í• í•˜ë„ë¡ ìœ ë„
 	void Explosion()
 	{
 		for (int i = 0; i < Size; ++i)
@@ -928,7 +928,7 @@ public:
 				FVector velocity = primitive->GetVelocity();
 				float radius = primitive->GetRadius() * 0.5f;
 
-				//»õ·Î¿î °ø »ı¼º
+				//ìƒˆë¡œìš´ ê³µ ìƒì„±
 				UPrimitive* newBall1 = new UBall(radius);
 				newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
 				newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
@@ -939,7 +939,7 @@ public:
 				newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
 				push_back(newBall2);
 
-				//±âÁ¸ °ø Á¦°Å
+				//ê¸°ì¡´ ê³µ ì œê±°
 				delete primitive;
 				primitives[i] = nullptr;
 				primitives[i] = primitives[Size - 1];
@@ -951,7 +951,7 @@ public:
 
 	void Combination()
 	{
-		//Å« index¸ÕÀú Ã³¸®¸¦ À§ÇØ¼­ Á¤·Ä
+		//í° indexë¨¼ì € ì²˜ë¦¬ë¥¼ ìœ„í•´ì„œ ì •ë ¬
 		for (int i = 0; i < mergeCount - 1; ++i)
 		{
 			for (int j = i + 1; j < mergeCount; ++j)
@@ -959,7 +959,7 @@ public:
 				int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
 				int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
 
-				if (maxI < maxJ) // ³»¸²Â÷¼ø Á¤·Ä
+				if (maxI < maxJ) // ë‚´ë¦¼ì°¨ìˆœ ì •ë ¬
 				{
 					Merge temp = mergeList[i];
 					mergeList[i] = mergeList[j];
@@ -973,7 +973,7 @@ public:
 			int indexA = mergeList[i].indexA;
 			int indexB = mergeList[i].indexB;
 
-			//¾È¿¡ ÀÖ´Â index Áß¿¡¼­µµ Å« °ª¸ÕÀú °è»êÇÏ±â À§ÇÔ
+			//ì•ˆì— ìˆëŠ” index ì¤‘ì—ì„œë„ í° ê°’ë¨¼ì € ê³„ì‚°í•˜ê¸° ìœ„í•¨
 			if (indexA < indexB)
 			{
 				int temp = indexA;
@@ -981,7 +981,7 @@ public:
 				indexB = temp;
 			}
 
-			//¿¹¿ÜÃ³¸® 
+			//ì˜ˆì™¸ì²˜ë¦¬ 
 			if (indexA == -1 || indexB == -1)
 			{
 				continue;
@@ -1028,7 +1028,7 @@ public:
 	int Capacity = 0;
 	int Size = 0;
 
-	Merge mergeList[1024] = { -1, -1 };// 1Ãæµ¹´ç 2°³ÀÇ ±¸°¡ ÇÊ¿äÇÏ´Ù°í ÇÏ¸é, 1024¸é ³Ë³ËÇÒ °ÍÀ¸·Î ¿¹»ó, ¸¸¾à 1024¹øÀ» ³Ñ±â¸é ±×³É Ãæµ¹·Î Ã³¸®
+	Merge mergeList[1024] = { -1, -1 };// 1ì¶©ëŒë‹¹ 2ê°œì˜ êµ¬ê°€ í•„ìš”í•˜ë‹¤ê³  í•˜ë©´, 1024ë©´ ë„‰ë„‰í•  ê²ƒìœ¼ë¡œ ì˜ˆìƒ, ë§Œì•½ 1024ë²ˆì„ ë„˜ê¸°ë©´ ê·¸ëƒ¥ ì¶©ëŒë¡œ ì²˜ë¦¬
 	int mergeCount = 0;
 };
 
@@ -1036,24 +1036,24 @@ int DesireNumberOfBalls = UBall::TotalBalls;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
-	// À©µµ¿ì Å¬·¡½º ÀÌ¸§
+	// ìœˆë„ìš° í´ë˜ìŠ¤ ì´ë¦„
 	WCHAR WindowClass[] = L"JungleWindowClass";
 
-	// À©µµ¿ì Å¸ÀÌÆ²¹Ù ÀÌ¸§
+	// ìœˆë„ìš° íƒ€ì´í‹€ë°” ì´ë¦„
 	WCHAR Title[] = L"Game Tech Lab";
 
-	// °¢Á¾ ¸Ş¼¼Áö¸¦ Ã³¸®ÇÒ ÇÔ¼öÀÎ WndProcÀÇ ÇÔ¼ö Æ÷ÀÎÅÍ¸¦ WindowClass ±¸Á¶Ã¼¿¡ µî·Ï
+	// ê°ì¢… ë©”ì„¸ì§€ë¥¼ ì²˜ë¦¬í•  í•¨ìˆ˜ì¸ WndProcì˜ í•¨ìˆ˜ í¬ì¸í„°ë¥¼ WindowClass êµ¬ì¡°ì²´ì— ë“±ë¡
 	WNDCLASSW wndClass = { 0, WndProc, 0, 0, 0, 0, 0, 0, 0, WindowClass };
 
-	// À©µµ¿ì Å¬·¡½º µî·Ï
+	// ìœˆë„ìš° í´ë˜ìŠ¤ ë“±ë¡
 	RegisterClassW(&wndClass);
 
-	// 1024 * 1024 Å©±âÀÇ À©µµ¿ì »ı¼º
+	// 1024 * 1024 í¬ê¸°ì˜ ìœˆë„ìš° ìƒì„±
 	HWND hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
+								CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
 
-	//°¢Á¾ »ı¼º/ÃÊ±âÈ­ ÄÚµå¸¦ ¿©±â¿¡ Ãß°¡
+	//ê°ì¢… ìƒì„±/ì´ˆê¸°í™” ì½”ë“œë¥¼ ì—¬ê¸°ì— ì¶”ê°€
 	URenderer renderer;
 	renderer.Create(hWnd);
 	renderer.CreateShader();
@@ -1068,22 +1068,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FVertexSimple* verticesSphere = sphere_vertices;
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 
-	// ±¸¿¡ °üÇÑ Vertex Buffer´Â ÇÑ ¹ø¸¸ »ı¼º ÈÄ Àç»ç¿ë
+	// êµ¬ì— ê´€í•œ Vertex BufferëŠ” í•œ ë²ˆë§Œ ìƒì„± í›„ ì¬ì‚¬ìš©
 	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
-	
+
 	bool bMagnetic = false;
 
 	bool bExplosion = false;
 	bool bCombination = false;
 
 
-	float elastic = 1.f; 
+	float elastic = 1.f;
 	FVector windForce(0.0f, 0.0f, 0.0f);
 	const int targetFPS = 30;
 	const float deltaTime = 1.0 / targetFPS;
-	const double targetFrameTime = 1000.0f / targetFPS; //¸ñÇ¥ ÇÁ·¹ÀÓ
+	const double targetFrameTime = 1000.0f / targetFPS; //ëª©í‘œ í”„ë ˆì„
 
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
@@ -1091,7 +1091,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0f;
 
-	// °ø ÇÏ³ª Ãß°¡ÇÏ°í ½ÃÀÛ
+	// ê³µ í•˜ë‚˜ ì¶”ê°€í•˜ê³  ì‹œì‘
 	FPrimitiveVector PrimitiveVector;
 	UBall* ball = new UBall();
 	PrimitiveVector.push_back(ball);
@@ -1104,7 +1104,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		MSG msg;
 
-		//¸Ş½ÃÁö Å¥¿¡¼­ msg¸¦ ²¨³»¿À°í Å¥¿¡¼­ Á¦°ÅÇÔ 
+		//ë©”ì‹œì§€ íì—ì„œ msgë¥¼ êº¼ë‚´ì˜¤ê³  íì—ì„œ ì œê±°í•¨ 
 		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
@@ -1125,7 +1125,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		//collision check
 		PrimitiveVector.CollisionCheck(elastic, bCombination);
-		 
+
 		//Magnetic
 		if (bMagnetic)
 		{
@@ -1137,7 +1137,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			bExplosion = false;
 		}
 
-		DesireNumberOfBalls = PrimitiveVector.size(); // ¾÷µ¥ÀÌÆ® ÈÄ °øÀÇ °³¼ö ÃÖ½ÅÈ­
+		DesireNumberOfBalls = PrimitiveVector.size(); // ì—…ë°ì´íŠ¸ í›„ ê³µì˜ ê°œìˆ˜ ìµœì‹ í™”
 
 		// Frame Update
 		renderer.Prepare();
@@ -1145,7 +1145,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		for (int i = 0; i < PrimitiveVector.size(); i++)
 		{
-			// ½ºÅ©¸° »ó¿¡¼­ÀÇ ÁÂÇ¥¿Í Å©±â °è»ê
+			// ìŠ¤í¬ë¦° ìƒì—ì„œì˜ ì¢Œí‘œì™€ í¬ê¸° ê³„ì‚°
 			UPrimitive* prim = PrimitiveVector[i];
 			FVector renderedLocation = cam->GetCameraSpaceLocation(PrimitiveVector[i]);
 			float renderedRadius = cam->GetCameraSpaceRadius(PrimitiveVector[i]);
@@ -1158,11 +1158,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
-		// ImGui UI ÄÁÆ®·Ñ Ãß°¡´Â ImGui::NewFrame()°ú ImGui::Render() »çÀÌ¿¡
+		// ImGui UI ì»¨íŠ¸ë¡¤ ì¶”ê°€ëŠ” ImGui::NewFrame()ê³¼ ImGui::Render() ì‚¬ì´ì—
 		ImGui::Begin("Jungle Property Window");
 		ImGui::Text("Hello Jungle World!");
 
-		    
+
 		ImGui::Checkbox("Manentic ", &bMagnetic);
 
 		if (ImGui::Button("Explore"))
@@ -1192,12 +1192,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		} while (elapsedTime < targetFrameTime);
 	}
 
-	// ¿©±â¿¡¼­ ImGui ¼Ò¸ê
+	// ì—¬ê¸°ì—ì„œ ImGui ì†Œë©¸
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
-	// ¼Ò¸ê¿¡ ÇÊ¿äÇÑ ÄÚµå 
+	// ì†Œë©¸ì— í•„ìš”í•œ ì½”ë“œ 
 	renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
 
 	renderer.ReleaseConstantBuffer();
