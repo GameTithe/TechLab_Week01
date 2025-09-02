@@ -1,5 +1,7 @@
 #include <windows.h>
 
+#include <vector>
+
 // D3D libraries
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
@@ -16,7 +18,17 @@
 #include "imGui/imgui_impl_win32.h"
 
 
+// UI
+#include <wincodec.h>
+#pragma comment(lib, "windowscodecs.lib") 
+#include "UIInfo.h"
+
+
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+const int winWidth = 1024;
+const int winHeight = 1024;
+
 
 // 각종 메세지를 처리할 함수
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -179,6 +191,19 @@ public:
 	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (셰이더에 전달할 데이터 저장용)
 
 
+	//UI
+	ID3D11VertexShader* UIVS = nullptr;
+	ID3D11PixelShader* UIPS = nullptr;
+	ID3D11InputLayout* UIInputLayout = nullptr;
+	ID3D11Buffer* UIVertexBuffer = nullptr;  // 동적 VB
+	ID3D11Buffer* UIPerFrameCB = nullptr;
+	ID3D11ShaderResourceView* UITitleSRV = nullptr;
+	ID3D11ShaderResourceView* UIStartSRV = nullptr;
+	ID3D11ShaderResourceView* UIExitSRV = nullptr; 
+
+	ID3D11SamplerState* UISampler = nullptr;
+	ID3D11BlendState* UIAlphaBlend = nullptr;
+
 	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// 렌더링 영역을 정의하는 뷰포트 정보 
 
@@ -308,6 +333,120 @@ public:
 		SwapChain->Present(1, 0); // 1: VSync 활성화 => GPU 프레임 속도 & 화면 갱신 속도 동기화
 	}
 
+	void CreateUIResources()
+	{
+		//쉐이더 컴파일
+		ID3DBlob* vsBlob = nullptr, * psBlob = nullptr;
+		D3DCompileFromFile(L"UI.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vsBlob, nullptr);
+		D3DCompileFromFile(L"UI.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &psBlob, nullptr);
+
+		Device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &UIVS);
+		Device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &UIPS);
+		
+		D3D11_INPUT_ELEMENT_DESC uiInputLayout[] = {
+		{"POSITION",0,DXGI_FORMAT_R32G32_FLOAT,       0, 0,  D3D11_INPUT_PER_VERTEX_DATA,0},
+		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 8,  D3D11_INPUT_PER_VERTEX_DATA,0},
+		{"COLOR",   0,DXGI_FORMAT_R32G32B32A32_FLOAT, 0,16,  D3D11_INPUT_PER_VERTEX_DATA,0},
+		};
+		Device->CreateInputLayout(uiInputLayout, ARRAYSIZE(uiInputLayout),
+			vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &UIInputLayout);
+
+		// 동적 VB 
+		D3D11_BUFFER_DESC vertexBufferDesc{};
+		vertexBufferDesc.ByteWidth = sizeof(UIVertex) * UIVBMaxVerts;
+		vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Device->CreateBuffer(&vertexBufferDesc, nullptr, &UIVertexBuffer);
+
+		//Perframe CB
+		D3D11_BUFFER_DESC constBufferDesc{};
+		constBufferDesc.ByteWidth = 16; // float4 정렬 (WindowSize(2)+pad(2))
+		constBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		constBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		constBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Device->CreateBuffer(&constBufferDesc, nullptr, &UIPerFrameCB);
+
+		// Sampler
+		D3D11_SAMPLER_DESC samplerDesc{};
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.AddressU = samplerDesc.AddressV = samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		Device->CreateSamplerState(&samplerDesc, &UISampler);
+
+
+		//// 6) 블렌드 (일반 알파)
+		D3D11_BLEND_DESC blendDesc{}; blendDesc.RenderTarget[0].BlendEnable = TRUE;
+		blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		Device->CreateBlendState(&blendDesc, &UIAlphaBlend);
+		 
+		LoadTextureWIC(L"ui_title.png", &UITitleSRV);
+		LoadTextureWIC(L"ui_start.png", &UIStartSRV);
+		LoadTextureWIC(L"ui_exit.png", &UIExitSRV);
+
+	}
+
+	void ReleaseUIResource()
+	{
+		if (UIAlphaBlend) { UIAlphaBlend->Release(); UIAlphaBlend = nullptr; }
+		if (UISampler) { UISampler->Release();    UISampler = nullptr; }
+		if (UITitleSRV) { UITitleSRV->Release();   UITitleSRV = nullptr; }
+		if (UIStartSRV) { UIStartSRV->Release();   UIStartSRV = nullptr; }
+		if (UIExitSRV) { UIExitSRV->Release();   UIExitSRV = nullptr; }
+		if (UIPerFrameCB) { UIPerFrameCB->Release(); UIPerFrameCB = nullptr; }
+		if (UIVertexBuffer) { UIVertexBuffer->Release(); UIVertexBuffer = nullptr; }
+		if (UIInputLayout) { UIInputLayout->Release(); UIInputLayout = nullptr; }
+		if (UIPS) { UIPS->Release();         UIPS = nullptr; }
+		if (UIVS) { UIVS->Release();         UIVS = nullptr; }
+	}
+
+	HRESULT LoadTextureWIC(const wchar_t* path, ID3D11ShaderResourceView** outSRV)
+	{
+		*outSRV = nullptr;
+		IWICImagingFactory* factory = nullptr; IWICBitmapDecoder* decoder = nullptr;
+		IWICBitmapFrameDecode* frame = nullptr; IWICFormatConverter* converter = nullptr;
+		
+		HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+			IID_PPV_ARGS(&factory));
+
+		if (FAILED(hr)) return hr;
+		hr = factory->CreateDecoderFromFilename(path, nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder);
+		if (SUCCEEDED(hr)) hr = decoder->GetFrame(0, &frame);
+		if (SUCCEEDED(hr)) hr = factory->CreateFormatConverter(&converter);
+		if (SUCCEEDED(hr)) hr = converter->Initialize(frame, GUID_WICPixelFormat32bppRGBA,
+			WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+		
+		UINT w = 0, h = 0; if (SUCCEEDED(hr)) { frame->GetSize(&w, &h); }
+
+		std::vector<uint8_t> pixels; pixels.resize(w * h * 4);
+		if (SUCCEEDED(hr)) hr = converter->CopyPixels(nullptr, w * 4, (UINT)pixels.size(), pixels.data());
+		
+		if (SUCCEEDED(hr)) {
+			D3D11_TEXTURE2D_DESC td{}; td.Width = w; td.Height = h; td.MipLevels = 1; td.ArraySize = 1;
+			td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1;
+			td.Usage = D3D11_USAGE_IMMUTABLE; td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			D3D11_SUBRESOURCE_DATA srd{ pixels.data(), (UINT)(w * 4), 0 };
+			ID3D11Texture2D* tex = nullptr; hr = Device->CreateTexture2D(&td, &srd, &tex);
+			if (SUCCEEDED(hr)) {
+				D3D11_SHADER_RESOURCE_VIEW_DESC sd{};
+				sd.Format = td.Format; sd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				sd.Texture2D.MipLevels = 1;
+				hr = Device->CreateShaderResourceView(tex, &sd, outSRV);
+				tex->Release();
+			}
+		}
+		if (converter) converter->Release();
+		if (frame) frame->Release();
+		if (decoder) decoder->Release();
+		if (factory) factory->Release();
+		return hr;
+	}
+		
 	//Shader
 public:
 	ID3D11VertexShader* SimpleVertexShader;
@@ -390,6 +529,31 @@ public:
 		}
 	}
 
+	void PrepareShaderUI(ID3D11ShaderResourceView* UISRV)
+	{ 
+		DeviceContext->IASetInputLayout(UIInputLayout);
+		DeviceContext->VSSetShader(UIVS, nullptr, 0);
+		DeviceContext->PSSetShader(UIPS, nullptr, 0);
+
+		DeviceContext->VSSetConstantBuffers(0, 1, &UIPerFrameCB);
+		DeviceContext->PSSetConstantBuffers(0, 1, &UIPerFrameCB);
+
+		DeviceContext->PSSetShaderResources(0, 1, &UISRV);
+
+
+		DeviceContext->PSSetSamplers(0, 1, &UISampler);
+
+		UINT stride = sizeof(UIVertex), offset = 0;
+		DeviceContext->IASetVertexBuffers(0, 1, &UIVertexBuffer, &stride, &offset);
+		DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		float blendFactor[4] = { 0,0,0,0 };
+		DeviceContext->OMSetBlendState(UIAlphaBlend, blendFactor, 0xffffffff);
+
+		DeviceContext->Draw(6, 0);
+
+	}
+
 	void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
 	{
 		UINT offset = 0;
@@ -463,7 +627,37 @@ public:
 		}
 	}
 
+	void UpdateConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])
+	{  
+		if (UIPerFrameCB) 
+		{
+			UIInfo mainUI = { {winSize[0], winSize[1]}, isHovering ? 1 : 0, 0.0f};
 
+			D3D11_MAPPED_SUBRESOURCE m;
+			DeviceContext->Map(UIPerFrameCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+			memcpy(m.pData, &mainUI, sizeof(mainUI));
+			DeviceContext->Unmap(UIPerFrameCB, 0);
+
+			float w = targetSize[0] * (winSize[0] / winWidth), h = targetSize[1] * (winSize[1] / winHeight);
+			float cx = winSize[0] * ratio[0], cy = winSize[1] * ratio[1];
+			float x0 = cx - w * 0.5f, y0 = cy - h * 0.5f;
+			float x1 = cx + w * 0.5f, y1 = cy + h * 0.5f;
+
+			UIVertex verts[6] = {
+			{x0,y0, 0,0, 1,1,1,1},
+			{x1,y0, 1,0, 1,1,1,1},
+			{x1,y1, 1,1, 1,1,1,1},
+			{x0,y0, 0,0, 1,1,1,1},
+			{x1,y1, 1,1, 1,1,1,1},
+			{x0,y1, 0,1, 1,1,1,1},
+			};
+
+			DeviceContext->Map(UIVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+			memcpy(m.pData, verts, sizeof(verts));
+			DeviceContext->Unmap(UIVertexBuffer, 0);
+
+		} 
+	}
 };
 
 
@@ -1028,6 +1222,8 @@ int DesireNumberOfBalls = UBall::TotalBalls;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
 	// 윈도우 클래스 이름
 	WCHAR WindowClass[] = L"JungleWindowClass";
 
@@ -1050,6 +1246,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	renderer.Create(hWnd);
 	renderer.CreateShader();
 	renderer.CreateConstantBuffer();
+	   
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -1092,6 +1289,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UBall* ball = new UBall();
 	PrimitiveVector.push_back(ball);
 
+	//Create UI Texture 
+	renderer.CreateUIResources();
+
 	// Main Loop 
 	while (bIsExit == false)
 	{
@@ -1121,19 +1321,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		//collision check
 		PrimitiveVector.CollisionCheck(elastic, bCombination);
 
-		//Gravity
-		if (bGravity)
-		{
-			PrimitiveVector.Gravity(bAirForce, bWindForce, Cd, windForce);
-		}
-		else
-		{
-			if (bWindForce)
-			{
-				PrimitiveVector.WindForce(windForce);
-			}
-		}
-
 		//Magnetic
 		if (bMagnetic)
 		{
@@ -1155,7 +1342,46 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			renderer.UpdateConstant(PrimitiveVector[i]->GetLocation(), PrimitiveVector[i]->GetRadius());
 			renderer.RenderPrimitive(UBall::vertexBufferSphere, numVerticesSphere);
+
 		}
+
+		////////// UI TEST ////////// 
+		RECT rect;
+		GetClientRect(hWnd, &rect);
+		float winW = (float)(rect.right - rect.left);
+		float winH = (float)(rect.bottom - rect.top);
+		float winSize[2] = { winW, winH };
+
+		//UI Title 
+		 
+		POINT pt;
+		GetCursorPos(&pt);              // 스크린 좌표계
+		ScreenToClient(hWnd, &pt);      // 윈도우 클라이언트 좌표로 변환
+		int mouseX = pt.x;
+		int mouseY = pt.y;
+		float mousePos[2] = { mouseX, mouseY };
+
+
+		float titleRatio[2] = { 0.5f, 0.3f };
+		float targetSize[2] = { 500, 500 };
+
+		renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
+		renderer.PrepareShaderUI(renderer.UITitleSRV);
+
+		float startRatio[2] = { 0.5f, 0.7f };
+		targetSize[0] = 200; targetSize[1] = 200;
+		UIReact rStart = MakeRect(winSize, targetSize, startRatio);
+		bool hoverStart = CheckMouseOnUI(rStart, mouseX, mouseY);
+
+
+		renderer.UpdateConstant(winSize, targetSize, hoverStart, startRatio);
+		renderer.PrepareShaderUI(renderer.UIStartSRV);
+		  
+		float exitRatio[2] = { 0.5f, 0.8f };
+		renderer.UpdateConstant(winSize, targetSize, true, exitRatio);
+		renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+		////////// UI TEST //////////
 
 		// ImGui Update
 		ImGui_ImplDX11_NewFrame();
@@ -1223,8 +1449,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			QueryPerformanceCounter(&endTime);
 
-			elapsedTime = (endTime.QuadPart - startTime.QuadPart);
-
+			elapsedTime = (endTime.QuadPart - startTime.QuadPart); 
 
 		} while (elapsedTime < targetFrameTime);
 	}
