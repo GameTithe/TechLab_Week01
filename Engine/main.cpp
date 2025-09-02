@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <algorithm>
 #include <vector>
+#include <chrono>
+
 
 // D3D libraries
 #pragma comment(lib, "user32")
@@ -826,7 +828,7 @@ public:
 	{
 		// 무작위 속성, 위치, 속도, 크기 설정
 		Attribute = (EAttribute)(rand() % 3);
-		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
+		Location = GetRandomLocationOusideScreen();
 
 		const float enemySpeed = 0.001f;
 		Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
@@ -865,6 +867,21 @@ public:
 		}
 	}
 
+	FVector GetRandomLocationOusideScreen()
+	{
+		FVector Vector;
+		do
+		{
+			Vector.x = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
+			Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
+			Vector.z = 0.0f; // Z는 고정
+		}
+		// [-1, 1] 정사각형 내부인지 직접 조건 체크
+		while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
+			   (Vector.y >= -1.0f && Vector.y <= 1.0f));
+
+		return Vector;
+	}
 
 public:
 	FVector Location;
@@ -1109,6 +1126,7 @@ public:
 		}
 		return primitives[index];
 	}
+
 	void ProcessGameLogic()
 	{
 		if (Player == nullptr) return; // 플레이어가 없으면 아무것도 안 함
@@ -1371,12 +1389,12 @@ public:
 	}
 
 	// 보이는 객체와 보이지 않는 객체를 분류하는 함수
-	void ClassifyVisibility(UCamera* camera, 
-						   std::vector<int>& visibleIndices, 
-						   std::vector<int>& invisibleIndices)
+	void ClassifyBorder(UCamera* camera, 
+						   std::vector<int>& InSideIndices, 
+						   std::vector<int>& OutSideIndices)
 	{
-		visibleIndices.clear();
-		invisibleIndices.clear();
+		InSideIndices.clear();
+		OutSideIndices.clear();
 		
 		for (int i = 0; i < Size; i++)
 		{
@@ -1385,17 +1403,17 @@ public:
 			
 			if (IsInRenderArea(renderedLocation, renderedRadius))
 			{
-				visibleIndices.push_back(i);
+				InSideIndices.push_back(i);
 			}
 			else
 			{
-				invisibleIndices.push_back(i);
+				OutSideIndices.push_back(i);
 			}
 		}
 	}
 
 	// 보이지 않는 객체들을 삭제하는 함수
-	void RemoveInvisiblePrimitives(const std::vector<int>& invisibleIndices)
+	void RemoveOutsidePrimitives(const std::vector<int>& invisibleIndices)
 	{
 		// 뒤에서부터 삭제 (인덱스 변화 방지)
 		for (int i = invisibleIndices.size() - 1; i >= 0; i--)
@@ -1423,6 +1441,29 @@ public:
 };
 
 //int DesireNumberOfBalls = UBall::TotalBalls;
+
+using Clock = std::chrono::steady_clock;
+Clock::time_point nextSpawn;
+
+void InitSpawnerChrono()
+{
+	std::srand(static_cast<unsigned>(GetTickCount64()));
+	auto ms = 300 + (std::rand() % 300);
+	nextSpawn = Clock::now() + std::chrono::milliseconds(ms);
+}
+
+void TickSpawnerChrono(FPrimitiveVector* PrimitiveVector)
+{
+	auto now = Clock::now();
+	if (now >= nextSpawn)
+	{
+		UEnemy* Enemy = new UEnemy();
+		PrimitiveVector->push_back(Enemy);
+
+		auto ms = 300 + (std::rand() % 300);
+		nextSpawn = now + std::chrono::milliseconds(ms);
+	}
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -1496,6 +1537,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0f;
 
+	LARGE_INTEGER CreateStartTime, CurrentTime;
+	double CreateInterval = rand() % 1000 + 500;
+	QueryPerformanceCounter(&CreateStartTime);
 	//// 공 하나 추가하고 시작
 	//FPrimitiveVector PrimitiveVector;
 	//UBall* ball = new UBall();
@@ -1503,7 +1547,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UCamera* cam = new UCamera();
 
 	// Dirty 플래그를 위한 벡터 - 렌더링할 객체의 인덱스만 저장
-	std::vector<int> visiblePrimitives;
+	std::vector<int> InsidePrimitives;
+
+	InitSpawnerChrono();
 
 	// Main Loop 
 	while (bIsExit == false)
@@ -1557,17 +1603,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		cam->UpdateCamera(PrimitiveVector[0]);
 
-		// Dirty 플래그 업데이트 및 보이지 않는 객체 삭제
-		std::vector<int> invisiblePrimitives; // 삭제할 객체들의 인덱스
+		// Dirty 플래그 업데이트 및 맵 보더 밖의 객체 삭제
+		std::vector<int> OutsidePrimitives; // 삭제할 객체들의 인덱스
 		
-		// FPrimitiveVector의 함수를 사용하여 가시성 분류
-		PrimitiveVector.ClassifyVisibility(cam, visiblePrimitives, invisiblePrimitives);
+		// FPrimitiveVector의 함수를 사용하여 보더 분류
+		PrimitiveVector.ClassifyBorder(cam, InsidePrimitives, OutsidePrimitives);
 		
-		// 보이지 않는 객체들 삭제
-		PrimitiveVector.RemoveInvisiblePrimitives(invisiblePrimitives);
+		// 맵 보더 밖의 객체들 삭제
+		PrimitiveVector.RemoveOutsidePrimitives(OutsidePrimitives);
 
-		// 보이는 객체들만 렌더링
-		for (int idx : visiblePrimitives)
+		// 보더 안의 객체들만 렌더링
+		for (int idx : InsidePrimitives)
 		{
 			// 스크린 상에서의 좌표와 크기 계산
 			UPrimitive* prim = PrimitiveVector[idx];
@@ -1579,6 +1625,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
+
+		// 렌더링 후 보이는 시야 밖에서 생성 가능할 때 생성
+		TickSpawnerChrono(&PrimitiveVector);
 
 		// ImGui Update
 		ImGui_ImplDX11_NewFrame();
@@ -1604,6 +1653,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		// Swap Buffer
 		renderer.SwapBuffer();
+
 		do
 		{
 			Sleep(0);
@@ -1614,6 +1664,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 		} while (elapsedTime < targetFrameTime);
+
+
 	}
 
 	// 여기에서 ImGui 소멸
