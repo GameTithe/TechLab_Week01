@@ -1,4 +1,6 @@
+#define NOMINMAX
 #include <windows.h>
+#include <algorithm>
 
 // D3D libraries
 #pragma comment(lib, "user32")
@@ -497,6 +499,10 @@ public:
 	float RenderScale = 1.0f;
 	float TargetRenderScale = 1.0f;
 
+	float RefRadius = 0.2f;    // RenderScale = 1.0 기준
+	float MinScale = 0.15f;    // 스케일 하한선 (너무 작아져서 점처럼 보이지 않게)
+	float MaxScale = 2.0f;     // 스케일 상한선 (과도한 줌인 방지)
+	float SmoothT = 0.2f;      // Lerp 비율
 public:
 	void SetLocation(FVector location)
 	{
@@ -505,36 +511,34 @@ public:
 
 	void UpdateCamera(UPrimitive* Player)
 	{
-		float playerRadius = Player->GetRadius();
-		// 플레이어 반지름을 기반으로 목표 스케일 결정
-		if (playerRadius < 0.2f)
-		{
-			TargetRenderScale = 1.0f;
-		}
-		else
-		{
-			TargetRenderScale = playerRadius * 5.0f;
-		}
+		SetLocation(Player->GetLocation());
+
 		// 실제 렌더링 스케일을 목표 스케일을 향해 점진적으로 조정
 		if (RenderScale != TargetRenderScale)
 		{
+			float playerRadius = std::max(Player->GetRadius(), 0.001f);
+			TargetRenderScale = RefRadius / playerRadius;
+			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
+			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
+
 			float t = 0.3f;
 			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
 			float diff = RenderScale - TargetRenderScale;
-			if (-0.1f < diff && diff < 0.1f)
+			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
 			{
 				RenderScale = TargetRenderScale;
 			}
 		}
-
-		SetLocation(Player->GetLocation());
 	}
 
-	FVector GetScreenLocation(UPrimitive* primitive)
+	FVector GetCameraSpaceLocation(UPrimitive* primitive)
 	{
-		FVector worldLoc = primitive->GetLocation();
-		FVector screenLoc = (worldLoc - this->Location) * RenderScale;
-		return screenLoc;
+		return (primitive->GetLocation() - this->Location) * RenderScale;
+	}
+
+	float GetCameraSpaceRadius(UPrimitive* primitive)
+	{
+		return primitive->GetRadius() * RenderScale;
 	}
 };
 
@@ -1091,6 +1095,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FPrimitiveVector PrimitiveVector;
 	UBall* ball = new UBall();
 	PrimitiveVector.push_back(ball);
+	UCamera* cam = new UCamera();
 
 	// Main Loop 
 	while (bIsExit == false)
@@ -1141,8 +1146,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		for (int i = 0; i < PrimitiveVector.size(); i++)
 		{
 			// 스크린 상에서의 좌표와 크기 계산
-
-			renderer.UpdateConstant(PrimitiveVector[i]->GetLocation(), PrimitiveVector[i]->GetRadius());
+			UPrimitive* prim = PrimitiveVector[i];
+			FVector renderedLocation = cam->GetCameraSpaceLocation(PrimitiveVector[i]);
+			float renderedRadius = cam->GetCameraSpaceRadius(PrimitiveVector[i]);
+			renderer.UpdateConstant(renderedLocation, renderedRadius);
 			renderer.RenderPrimitive(UBall::vertexBufferSphere, numVerticesSphere);
 		}
 
