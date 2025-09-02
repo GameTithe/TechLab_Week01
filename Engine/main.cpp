@@ -21,7 +21,12 @@
 
 // UI
 #include "UIInfo.h"
+#include <iostream> // cout ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+#include <ctime>    // time() ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+#include <cstdlib>  // srand(), rand() ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+#include <cstdlib>
 
+HWND hWnd = nullptr;
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -163,15 +168,15 @@ struct FVector
 	}
 };
 
-// ¼Ó¼ºÀ» ³ªÅ¸³»±â À§ÇÑ ¿­°ÅÇü(enum) Á¤ÀÇ
+// ï¿½Ó¼ï¿½ï¿½ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(enum) ï¿½ï¿½ï¿½ï¿½
 enum EAttribute
 {
-	WATER, // ¹°
-	FIRE,  // ºÒ
+	WATER, // ï¿½ï¿½
+	FIRE,  // ï¿½ï¿½
 	GRASS  // Ç®
 };
 
-// ¼Ó¼º »ó¼ºÀ» Ã¼Å©ÇÏ´Â µµ¿ì¹Ì ÇÔ¼ö
+// ï¿½Ó¼ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã¼Å©ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
 {
 	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
@@ -535,11 +540,61 @@ public:
 	virtual float GetMagnetic() const = 0;
 	virtual bool GetDivide() const = 0;
 	virtual void SetDivide(bool newDivide) = 0;
-	
-	
+
+
 	virtual void Movement() = 0;
 	virtual EAttribute GetAttribute() const = 0;
 
+};
+
+class UCamera
+{
+public:
+	FVector Location;
+	float RenderScale = 1.0f;
+	float TargetRenderScale = 1.0f;
+
+	float RefRadius = 0.2f;    // RenderScale = 1.0 ï¿½ï¿½ï¿½ï¿½
+	float MinScale = 0.15f;    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ñ¼ï¿½ (ï¿½Ê¹ï¿½ ï¿½Û¾ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ê°ï¿½)
+	float MaxScale = 2.0f;     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ñ¼ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
+	float SmoothT = 0.2f;      // Lerp ï¿½ï¿½ï¿½ï¿½
+public:
+	void SetLocation(FVector location)
+	{
+		this->Location = location;
+	}
+
+	void UpdateCamera(UPrimitive* Player)
+	{
+		SetLocation(Player->GetLocation());
+
+		// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		if (RenderScale != TargetRenderScale)
+		{
+			float playerRadius = std::max(Player->GetRadius(), 0.001f);
+			TargetRenderScale = RefRadius / playerRadius;
+			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
+			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
+
+			float t = 0.3f;
+			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
+			float diff = RenderScale - TargetRenderScale;
+			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
+			{
+				RenderScale = TargetRenderScale;
+			}
+		}
+	}
+
+	FVector GetCameraSpaceLocation(UPrimitive* primitive)
+	{
+		return (primitive->GetLocation() - this->Location) * RenderScale;
+	}
+
+	float GetCameraSpaceRadius(UPrimitive* primitive)
+	{
+		return primitive->GetRadius() * RenderScale;
+	}
 };
 
 class UBall : public UPrimitive
@@ -694,20 +749,20 @@ public:
 class UPlayer : public UPrimitive
 {
 public:
-	// »ı¼ºÀÚ: ÇÃ·¹ÀÌ¾î »ı¼º ½Ã È£ÃâµÊ
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½ï¿½
 	UPlayer()
 	{
-		// 1. ÇÃ·¹ÀÌ¾î ¼Ó¼ºÀ» ·£´ıÀ¸·Î ¼±ÅÃ
-		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 Áß ÇÏ³ª¸¦ ·£´ıÀ¸·Î »Ì¾Æ ¼Ó¼ºÀ¸·Î ÁöÁ¤
+		// 1. ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½Ó¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 ï¿½ï¿½ ï¿½Ï³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¾ï¿½ ï¿½Ó¼ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-		Radius = 0.08f; // ÃÊ±â Å©±â
+		Radius = 0.08f; // ï¿½Ê±ï¿½ Å©ï¿½ï¿½
 		Mass = Radius * 10.0f;
-		Location = FVector(0.0f, 0.0f, 0.0f); // È­¸é Áß¾Ó¿¡¼­ ½ÃÀÛ
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // ¼Óµµ´Â ¸¶¿ì½º¸¦ µû¸£¹Ç·Î 0À¸·Î ½ÃÀÛ
+		Location = FVector(0.0f, 0.0f, 0.0f); // È­ï¿½ï¿½ ï¿½ß¾Ó¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // ï¿½Óµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ì½ºï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ 0ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		Score = 0;
 	}
 
-	// UPrimitiveÀÇ ±ÔÄ¢(¼ø¼ö °¡»ó ÇÔ¼ö)¿¡ µû¶ó ¸ğµç ÇÔ¼ö¸¦ ±¸Çö
+	// UPrimitiveï¿½ï¿½ ï¿½ï¿½Ä¢(ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 
@@ -716,26 +771,26 @@ public:
 
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// ±ÔÄ¢¿¡ µû¶ó GetAttribute ÇÔ¼ö¸¦ ±¸Çö
-	virtual EAttribute GetAttribute() const override {return Attribute;} 
-	// »ç¿ëµÇÁö ¾Ê´Â ±â´ÉµéÀº ±âº» ÇüÅÂ·Î ±¸Çö
+	// ï¿½ï¿½Ä¢ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ GetAttribute ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	virtual EAttribute GetAttribute() const override { return Attribute; }
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ê´ï¿½ ï¿½ï¿½Éµï¿½ï¿½ï¿½ ï¿½âº» ï¿½ï¿½ï¿½Â·ï¿½ ï¿½ï¿½ï¿½ï¿½
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// ÇÃ·¹ÀÌ¾îÀÇ ÇÙ½É ·ÎÁ÷: ¸¶¿ì½º¸¦ µû¶ó ¿òÁ÷ÀÓ
+	// ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ï¿½ï¿½ ï¿½Ù½ï¿½ ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ì½ºï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	virtual void Movement() override
 	{
-		extern HWND hWnd; // WinMainÀÇ hWnd¸¦ ¿ÜºÎ¿¡¼­ ÂüÁ¶
+		extern HWND hWnd; // WinMainï¿½ï¿½ hWndï¿½ï¿½ ï¿½ÜºÎ¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 		POINT mousePos;
-		GetCursorPos(&mousePos); // ¸¶¿ì½ºÀÇ ½ºÅ©¸° ÁÂÇ¥¸¦ ¾òÀ½
-		ScreenToClient(hWnd, &mousePos); // ½ºÅ©¸° ÁÂÇ¥¸¦ ÇÁ·Î±×·¥ Ã¢ ³»ºÎ ÁÂÇ¥·Î º¯È¯
+		GetCursorPos(&mousePos); // ï¿½ï¿½ï¿½ì½ºï¿½ï¿½ ï¿½ï¿½Å©ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		ScreenToClient(hWnd, &mousePos); // ï¿½ï¿½Å©ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ ï¿½ï¿½ï¿½Î±×·ï¿½ Ã¢ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ ï¿½ï¿½È¯
 
 		RECT clientRect;
-		GetClientRect(hWnd, &clientRect); // ÇÁ·Î±×·¥ Ã¢ÀÇ Å©±â¸¦ ¾òÀ½
+		GetClientRect(hWnd, &clientRect); // ï¿½ï¿½ï¿½Î±×·ï¿½ Ã¢ï¿½ï¿½ Å©ï¿½â¸¦ ï¿½ï¿½ï¿½ï¿½
 
-		// Ã¢ ³»ºÎ ÁÂÇ¥(e.g., 0~1024)¸¦ °ÔÀÓ ¿ùµå ÁÂÇ¥(-1.0 ~ 1.0)·Î º¯È¯
+		// Ã¢ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥(e.g., 0~1024)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥(-1.0 ~ 1.0)ï¿½ï¿½ ï¿½ï¿½È¯
 		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
 		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
 
@@ -743,13 +798,13 @@ public:
 		Location.y = worldY;
 	}
 
-	// Å©±â¿Í Á¡¼ö¸¦ Á¶ÀıÇÏ´Â »õ·Î¿î ÇÔ¼öµé
+	// Å©ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½Ô¼ï¿½ï¿½ï¿½
 	void AddScore(int amount) { Score += amount; }
 	int GetScore() const { return Score; }
 	void SetRadius(float newRadius)
 	{
 		Radius = newRadius;
-		// Å©±â°¡ º¯ÇÏ¸é Áú·®µµ °°ÀÌ ¾÷µ¥ÀÌÆ®
+		// Å©ï¿½â°¡ ï¿½ï¿½ï¿½Ï¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
 		Mass = Radius * 10.0f;
 	}
 
@@ -766,10 +821,10 @@ public:
 class UEnemy : public UPrimitive
 {
 public:
-	// »ı¼ºÀÚ: ENEMY »ı¼º ½Ã È£ÃâµÊ
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ENEMY ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½ï¿½
 	UEnemy()
 	{
-		// ¹«ÀÛÀ§ ¼Ó¼º, À§Ä¡, ¼Óµµ, Å©±â ¼³Á¤
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ó¼ï¿½, ï¿½ï¿½Ä¡, ï¿½Óµï¿½, Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		Attribute = (EAttribute)(rand() % 3);
 		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
 
@@ -777,11 +832,11 @@ public:
 		Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
 		Velocity.y = (float)(rand() % 100 - 50) * enemySpeed;
 
-		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f; // ÃÖ¼Ò, ÃÖ´ë Å©±â ÁöÁ¤
+		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f; // ï¿½Ö¼ï¿½, ï¿½Ö´ï¿½ Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitiveÀÇ ±ÔÄ¢¿¡ µû¶ó ¸ğµç ÇÔ¼ö¸¦ ±¸Çö
+	// UPrimitiveï¿½ï¿½ ï¿½ï¿½Ä¢ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
@@ -789,13 +844,13 @@ public:
 	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// ±ÔÄ¢¿¡ µû¶ó GetAttribute ÇÔ¼ö¸¦ ±¸Çö
+	// ï¿½ï¿½Ä¢ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ GetAttribute ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	virtual EAttribute GetAttribute() const override { return Attribute; }
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// ENEMYÀÇ ¿òÁ÷ÀÓ: ±âÁ¸ UBallÃ³·³ º®¿¡ Æ¨±è
+	// ENEMYï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ UBallÃ³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Æ¨ï¿½ï¿½
 	virtual void Movement() override
 	{
 		Location += Velocity;
@@ -822,18 +877,18 @@ public:
 class UPrey : public UPrimitive
 {
 public:
-	// »ı¼ºÀÚ: PREY »ı¼º ½Ã È£ÃâµÊ
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: PREY ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½ï¿½
 	UPrey()
 	{
-		// ¹«ÀÛÀ§ ¼Ó¼º, À§Ä¡, Å©±â ¼³Á¤
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ó¼ï¿½, ï¿½ï¿½Ä¡, Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		Attribute = (EAttribute)(rand() % 3);
 		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // ¿òÁ÷ÀÌÁö ¾ÊÀ¸¹Ç·Î ¼Óµµ´Â 0
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ ï¿½Óµï¿½ï¿½ï¿½ 0
 		Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitiveÀÇ ±ÔÄ¢¿¡ µû¶ó ¸ğµç ÇÔ¼ö¸¦ ±¸Çö
+	// UPrimitiveï¿½ï¿½ ï¿½ï¿½Ä¢ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 	virtual FVector GetVelocity() const override { return Velocity; }
@@ -845,10 +900,10 @@ public:
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// PREYÀÇ ¿òÁ÷ÀÓ: ¿òÁ÷ÀÌÁö ¾ÊÀ½
+	// PREYï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	virtual void Movement() override
 	{
-		// ¾Æ¹« ÄÚµåµµ ¾øÀ½
+		// ï¿½Æ¹ï¿½ ï¿½Úµåµµ ï¿½ï¿½ï¿½ï¿½
 	}
 
 public:
@@ -859,64 +914,89 @@ public:
 	EAttribute Attribute;
 };
 
-int UBall::TotalBalls = 0;
-ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static ë©¤ë²„ ë³€ìˆ˜ ì´ˆê¸°í™”
+//int UBall::TotalBalls = 0;
+//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ê±ï¿½È­\
 
-class UCamera
+
+class Controller
 {
 public:
-	FVector Location;
-	float RenderScale = 1.0f;
-	float TargetRenderScale = 1.0f;
+	UPlayer** PlayerCells = nullptr;
+	int MaxCount = 0;
+	int Count = 0;
 
-	float RefRadius = 0.2f;    // RenderScale = 1.0 ê¸°ì¤€
-	float MinScale = 0.15f;    // ìŠ¤ì¼€ì¼ í•˜í•œì„  (ë„ˆë¬´ ì‘ì•„ì ¸ì„œ ì ì²˜ëŸ¼ ë³´ì´ì§€ ì•Šê²Œ)
-	float MaxScale = 2.0f;     // ìŠ¤ì¼€ì¼ ìƒí•œì„  (ê³¼ë„í•œ ì¤Œì¸ ë°©ì§€)
-	float SmoothT = 0.2f;      // Lerp ë¹„ìœ¨
 public:
-	UCamera(UPrimitive* Player)
+	Controller(int MaxCount)
 	{
-		SetLocation(Player->GetLocation());
-		float playerRadius = std::max(Player->GetRadius(), 0.001f);
-		TargetRenderScale = RefRadius / playerRadius;
-		TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
-		RenderScale = TargetRenderScale;
-	}
-
-	void SetLocation(FVector location)
-	{
-		this->Location = location;
-	}
-
-	void UpdateCamera(UPrimitive* Player)
-	{
-		SetLocation(Player->GetLocation());
-
-		// ì‹¤ì œ ë Œë”ë§ ìŠ¤ì¼€ì¼ì„ ëª©í‘œ ìŠ¤ì¼€ì¼ì„ í–¥í•´ ì ì§„ì ìœ¼ë¡œ ì¡°ì •
-		if (RenderScale != TargetRenderScale)
+		MaxCount = 4;
+		Count = 0;
+		PlayerCells = new UPlayer * [MaxCount];
+		for (int i = 0; i < MaxCount; ++i)
 		{
-			float playerRadius = std::max(Player->GetRadius(), 0.001f);
-			TargetRenderScale = RefRadius / playerRadius;
-			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
-			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
-			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
-			{
-				RenderScale = TargetRenderScale;
-			}
+			PlayerCells[i] = nullptr;
 		}
 	}
 
-	FVector GetCameraSpaceLocation(UPrimitive* primitive)
+	~Controller()
 	{
-		return (primitive->GetLocation() - this->Location) * RenderScale;
+		for (int i = 0; i < Count; ++i)
+		{
+			delete PlayerCells[i];
+		}
+		delete[] PlayerCells;
 	}
 
-	float GetCameraSpaceRadius(UPrimitive* primitive)
+	bool TryGetCenterOfMass(FVector& CenterOfMass)
 	{
-		return primitive->GetRadius() * RenderScale;
+		if (Count == 0)
+		{
+			return false;
+		}
+
+		float CenterX = 0.0f;
+		float CenterY = 0.0f;
+		float TotalMass = 0.0f;
+
+		for (int i = 0; i < Count; ++i)
+		{
+			// NRE ï¿½ï¿½ï¿½
+			UPlayer* Cell = PlayerCells[i];
+			if (!Cell)
+			{
+				continue;
+			}
+			float Mass = Cell->GetMass();
+			FVector Location = Cell->GetLocation();
+			CenterX += Location.x * Mass;
+			CenterY += Location.y * Mass;
+		}
+
+		// Fallback: ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 0ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½
+		if (TotalMass < 1e-6)
+		{
+			CenterX = CenterY = 0.0f;
+			for (int i = 0; i < Count; ++i)
+			{
+				// NRE ï¿½ï¿½ï¿½
+				UPlayer* Cell = PlayerCells[i];
+				if (!Cell)
+				{
+					continue;
+				}
+
+				FVector Location = Cell->GetLocation();
+				CenterX += Location.x;
+				CenterY += Location.y;
+			}
+			CenterOfMass = FVector(CenterX / Count, CenterY / Count, 0.0f);
+			return true;
+		}
+
+		CenterOfMass = FVector(CenterX / TotalMass, CenterY / TotalMass, 0.0f);
+		return true;
 	}
+
 };
-
 struct Merge
 {
 	int indexA;
@@ -926,6 +1006,9 @@ struct Merge
 class FPrimitiveVector
 {
 public:
+	// ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	UPlayer* Player = nullptr;
+
 	FPrimitiveVector()
 	{
 		Capacity = 10;
@@ -948,6 +1031,15 @@ public:
 		{
 			ReSize();
 		}
+
+		// ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½ï¿½Ç´ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ï¿½ï¿½, Player ï¿½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ ï¿½ï¿½ï¿½ï¿½
+		// dynamic_castï¿½ï¿½ UPrimitive*ï¿½ï¿½ UPlayer*ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½È¯ ï¿½Ãµï¿½
+		UPlayer* playerCandidate = dynamic_cast<UPlayer*>(primitive);
+		if (playerCandidate != nullptr)
+		{
+			Player = playerCandidate;
+		}
+
 		primitives[Size++] = primitive;
 	}
 
@@ -972,6 +1064,22 @@ public:
 			primitives[Size - 1] = nullptr;
 			Size--;
 		}
+	}
+	void RemoveAt(int index)
+	{
+		// ï¿½ï¿½È¿ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		if (index < 0 || index >= Size)
+		{
+			return;
+		}
+
+		// ï¿½ï¿½Ã¼ ï¿½Ş¸ï¿½ ï¿½ï¿½ï¿½ï¿½
+		delete primitives[index];
+
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ò¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ï¿½ï¿½ ï¿½Ìµï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½)
+		primitives[index] = primitives[Size - 1];
+		primitives[Size - 1] = nullptr;
+		Size--;
 	}
 
 	void ReSize()
@@ -1001,75 +1109,109 @@ public:
 		}
 		return primitives[index];
 	}
-
-	void CollisionCheck(float elastic, bool bCombination)
+	void ProcessGameLogic()
 	{
-		for (int i = 0; i < Size; ++i)
+		if (Player == nullptr) return; // ï¿½Ã·ï¿½ï¿½Ì¾î°¡ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Æ¹ï¿½ï¿½Íµï¿½ ï¿½ï¿½ ï¿½ï¿½
+
+		// ï¿½è¿­ï¿½ï¿½ ï¿½Å²Ù·ï¿½ ï¿½ï¿½È¸ï¿½Ø¾ï¿½ ï¿½ï¿½Ã¼ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		for (int i = Size - 1; i >= 0; --i)
 		{
-			for (int j = i + 1; j < Size; ++j)
+			// ï¿½Ú±ï¿½ ï¿½Ú½ï¿½(ï¿½Ã·ï¿½ï¿½Ì¾ï¿½)ï¿½ï¿½ï¿½ï¿½ ï¿½æµ¹ ï¿½Ë»ç¸¦ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+			if (primitives[i] == Player)
 			{
-				UPrimitive* a = primitives[i];
-				UPrimitive* b = primitives[j];
+				continue;
+			}
 
-				float radius1 = a->GetRadius();
-				float radius2 = b->GetRadius();
+			UPrimitive* other = primitives[i];
+			float dist2 = FVector::Distance2(Player->GetLocation(), other->GetLocation());
+			float minDist = Player->GetRadius() + other->GetRadius();
 
-				FVector pos1 = a->GetLocation();
-				FVector pos2 = b->GetLocation();
-
-				float dist2 = FVector::Distance2(pos2, pos1);
-				float minDist = radius1 + radius2;
-
-				// êµ¬ì™€ êµ¬ì˜ ì¶©ëŒì²˜ë¦¬ sqrt ë¹„ìš©ì´ ë¹„ì‹¸ê¸° ë•Œë¬¸ì— squreë˜ì–´ìˆëŠ” ìƒíƒœì—ì„œ ê±°ë¦¬ ë¹„êµ
-				if (dist2 < minDist * minDist)
+			// ï¿½æµ¹ï¿½ß´Ù¸ï¿½
+			if (dist2 < minDist * minDist)
+			{
+				// ï¿½Ì±ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¼Å©
+				if (CheckWin(Player->GetAttribute(), other->GetAttribute()))
 				{
-
-					if (bCombination && mergeCount < 1024)
-					{
-						mergeList[mergeCount] = { i, j };
-						mergeCount++;
-					}
-					//Combineì´ ì•„ë‹ˆê±°ë‚˜ mergeCountê°€ ìµœëŒ€ mergeë³´ë‹¤ í´ ë•Œ
-					else
-					{
-						float dist = sqrt(dist2);
-						FVector normal = (pos2 - pos1);
-						normal.Normalize();
-
-						FVector velocityOfA = a->GetVelocity();
-						FVector velocityOfB = b->GetVelocity();
-
-						FVector relativeVelocity = velocityOfB - velocityOfA;
-						float speed = Dot(relativeVelocity, normal);
-
-						// ìƒëŒ€ ì†ë„ì™€ ì¶©ëŒëœ êµ¬ì™€ì˜ ë°©í–¥ì´ ê°™ì„ ë•Œë§Œ ì¶©ê²©ëŸ‰ ê³„ì‚°
-						if (speed < 0.0f)
-						{
-							float massOfA = a->GetMass();
-							float massOfB = b->GetMass();
-
-							float impulse = -(1 + elastic) * speed / (1 / massOfA + 1 / massOfB);
-							FVector J = normal * impulse;
-
-							a->SetVelocity(velocityOfA - J / massOfA);
-							b->SetVelocity(velocityOfB + J / massOfB);
-						}
-
-						// ìœ„ì¹˜ ë³´ì •
-						float penetration = minDist - dist;
-						FVector correction = normal * (penetration * 0.5f);
-						a->SetLocation(pos1 - correction);
-						b->SetLocation(pos2 + correction);
-					}
+					Player->AddScore(10);
+					Player->SetRadius(Player->GetRadius() + 0.005f); // Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 				}
+				else // ï¿½ï¿½ï¿½Å³ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
+				{
+					Player->AddScore(-5);
+					Player->SetRadius(Player->GetRadius() - 0.005f); // Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+				}
+
+				// ï¿½æµ¹ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+				RemoveAt(i);
 			}
 		}
-
-		Combination();
 	}
+	//void CollisionCheck(float elastic, bool bCombination)
+	//{
+	//	for (int i = 0; i < Size; ++i)
+	//	{
+	//		for (int j = i + 1; j < Size; ++j)
+	//		{
+	//			UPrimitive* a = primitives[i];
+	//			UPrimitive* b = primitives[j];
 
-	// ì¿¨ë£½ ì‹ìœ¼ë¡œ ìê¸°ë ¥ íš¨ê³¼ 
-	// ê±°ë¦¬ ì œê³±ì— ë°˜ë¹„ë¡€
+	//			float radius1 = a->GetRadius();
+	//			float radius2 = b->GetRadius();
+
+	//			FVector pos1 = a->GetLocation();
+	//			FVector pos2 = b->GetLocation();
+
+	//			float dist2 = FVector::Distance2(pos2, pos1);
+	//			float minDist = radius1 + radius2;
+
+	//			// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½æµ¹Ã³ï¿½ï¿½ sqrt ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Î±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ squreï¿½Ç¾ï¿½ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½Â¿ï¿½ï¿½ï¿½ ï¿½Å¸ï¿½ ï¿½ï¿½
+	//			if (dist2 < minDist * minDist)
+	//			{
+
+	//				if (bCombination && mergeCount < 1024)
+	//				{
+	//					mergeList[mergeCount] = { i, j };
+	//					mergeCount++;
+	//				}
+	//				//Combineï¿½ï¿½ ï¿½Æ´Ï°Å³ï¿½ mergeCountï¿½ï¿½ ï¿½Ö´ï¿½ mergeï¿½ï¿½ï¿½ï¿½ Å¬ ï¿½ï¿½
+	//				else
+	//				{
+	//					float dist = sqrt(dist2);
+	//					FVector normal = (pos2 - pos1);
+	//					normal.Normalize();
+
+	//					FVector velocityOfA = a->GetVelocity();
+	//					FVector velocityOfB = b->GetVelocity();
+
+	//					FVector relativeVelocity = velocityOfB - velocityOfA;
+	//					float speed = Dot(relativeVelocity, normal);
+
+	//					// ï¿½ï¿½ï¿½ ï¿½Óµï¿½ï¿½ï¿½ ï¿½æµ¹ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½İ·ï¿½ ï¿½ï¿½ï¿½
+	//					if (speed < 0.0f)
+	//					{
+	//						float massOfA = a->GetMass();
+	//						float massOfB = b->GetMass();
+
+	//						float impulse = -(1 + elastic) * speed / (1 / massOfA + 1 / massOfB);
+	//						FVector J = normal * impulse;
+
+	//						a->SetVelocity(velocityOfA - J / massOfA);
+	//						b->SetVelocity(velocityOfB + J / massOfB);
+	//					}
+
+	//					// ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ï¿½
+	//					float penetration = minDist - dist;
+	//					FVector correction = normal * (penetration * 0.5f);
+	//					a->SetLocation(pos1 - correction);
+	//					b->SetLocation(pos2 + correction);
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	// ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ú±ï¿½ï¿½ È¿ï¿½ï¿½ 
+	// ï¿½Å¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½İºï¿½ï¿½
 	void MagneticForce()
 	{
 		for (int i = 0; i < Size; ++i)
@@ -1101,120 +1243,120 @@ public:
 		}
 	}
 
-	//ì¼ì • ë°˜ì§€ë¦„ ì´í•˜ì¼ ë•Œ ë¶„í• í•˜ë„ë¡ ìœ ë„
-	void Explosion()
-	{
-		for (int i = 0; i < Size; ++i)
-		{
-			UPrimitive* primitive = primitives[i];
-			if (primitive->GetRadius() > 0.05f)
-			{
-				primitive->SetDivide(true);
-			}
-		}
+	////ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//void Explosion()
+	//{
+	//	for (int i = 0; i < Size; ++i)
+	//	{
+	//		UPrimitive* primitive = primitives[i];
+	//		if (primitive->GetRadius() > 0.05f)
+	//		{
+	//			primitive->SetDivide(true);
+	//		}
+	//	}
 
-		for (int i = 0; i < Size; ++i)
-		{
-			UPrimitive* primitive = primitives[i];
-			if (primitive->GetDivide())
-			{
-				FVector location = primitive->GetLocation();
-				FVector velocity = primitive->GetVelocity();
-				float radius = primitive->GetRadius() * 0.5f;
+	//	for (int i = 0; i < Size; ++i)
+	//	{
+	//		UPrimitive* primitive = primitives[i];
+	//		if (primitive->GetDivide())
+	//		{
+	//			FVector location = primitive->GetLocation();
+	//			FVector velocity = primitive->GetVelocity();
+	//			float radius = primitive->GetRadius() * 0.5f;
 
-				//ìƒˆë¡œìš´ ê³µ ìƒì„±
-				UPrimitive* newBall1 = new UBall(radius);
-				newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
-				newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
-				push_back(newBall1);
+	//			//ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//			UPrimitive* newBall1 = new UBall(radius);
+	//			newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
+	//			newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
+	//			push_back(newBall1);
 
-				UPrimitive* newBall2 = new UBall(radius);
-				newBall2->SetLocation(FVector(location.x - radius, location.y, location.z));
-				newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
-				push_back(newBall2);
+	//			UPrimitive* newBall2 = new UBall(radius);
+	//			newBall2->SetLocation(FVector(location.x - radius, location.y, location.z));
+	//			newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
+	//			push_back(newBall2);
 
-				//ê¸°ì¡´ ê³µ ì œê±°
-				delete primitive;
-				primitives[i] = nullptr;
-				primitives[i] = primitives[Size - 1];
-				primitives[i]->SetDivide(false);
-				Size--;
-			}
-		}
-	}
+	//			//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//			delete primitive;
+	//			primitives[i] = nullptr;
+	//			primitives[i] = primitives[Size - 1];
+	//			primitives[i]->SetDivide(false);
+	//			Size--;
+	//		}
+	//	}
+	//}
 
-	void Combination()
-	{
-		//í° indexë¨¼ì € ì²˜ë¦¬ë¥¼ ìœ„í•´ì„œ ì •ë ¬
-		for (int i = 0; i < mergeCount - 1; ++i)
-		{
-			for (int j = i + 1; j < mergeCount; ++j)
-			{
-				int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
-				int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
+	//void Combination()
+	//{
+	//	//Å« indexï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ø¼ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//	for (int i = 0; i < mergeCount - 1; ++i)
+	//	{
+	//		for (int j = i + 1; j < mergeCount; ++j)
+	//		{
+	//			int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
+	//			int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
 
-				if (maxI < maxJ) // ë‚´ë¦¼ì°¨ìˆœ ì •ë ¬
-				{
-					Merge temp = mergeList[i];
-					mergeList[i] = mergeList[j];
-					mergeList[j] = temp;
-				}
-			}
+	//			if (maxI < maxJ) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//			{
+	//				Merge temp = mergeList[i];
+	//				mergeList[i] = mergeList[j];
+	//				mergeList[j] = temp;
+	//			}
+	//		}
 
-		}
-		for (int i = 0; i < mergeCount; i++)
-		{
-			int indexA = mergeList[i].indexA;
-			int indexB = mergeList[i].indexB;
+	//	}
+	//	for (int i = 0; i < mergeCount; i++)
+	//	{
+	//		int indexA = mergeList[i].indexA;
+	//		int indexB = mergeList[i].indexB;
 
-			//ì•ˆì— ìˆëŠ” index ì¤‘ì—ì„œë„ í° ê°’ë¨¼ì € ê³„ì‚°í•˜ê¸° ìœ„í•¨
-			if (indexA < indexB)
-			{
-				int temp = indexA;
-				indexA = indexB;
-				indexB = temp;
-			}
+	//		//ï¿½È¿ï¿½ ï¿½Ö´ï¿½ index ï¿½ß¿ï¿½ï¿½ï¿½ï¿½ï¿½ Å« ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//		if (indexA < indexB)
+	//		{
+	//			int temp = indexA;
+	//			indexA = indexB;
+	//			indexB = temp;
+	//		}
 
-			//ì˜ˆì™¸ì²˜ë¦¬ 
-			if (indexA == -1 || indexB == -1)
-			{
-				continue;
-			}
-			if (indexA >= Size || indexB >= Size)
-			{
-				continue;
-			}
-			UPrimitive* a = primitives[indexA];
-			UPrimitive* b = primitives[indexB];
+	//		//ï¿½ï¿½ï¿½ï¿½Ã³ï¿½ï¿½ 
+	//		if (indexA == -1 || indexB == -1)
+	//		{
+	//			continue;
+	//		}
+	//		if (indexA >= Size || indexB >= Size)
+	//		{
+	//			continue;
+	//		}
+	//		UPrimitive* a = primitives[indexA];
+	//		UPrimitive* b = primitives[indexB];
 
-			FVector newLocation = (a->GetLocation() + a->GetLocation()) * 0.5f;
-			float radiusA = a->GetRadius();
-			float radiusB = b->GetRadius();
+	//		FVector newLocation = (a->GetLocation() + a->GetLocation()) * 0.5f;
+	//		float radiusA = a->GetRadius();
+	//		float radiusB = b->GetRadius();
 
 
-			delete a;
-			primitives[indexA] = primitives[Size - 1];
-			Size--;
+	//		delete a;
+	//		primitives[indexA] = primitives[Size - 1];
+	//		Size--;
 
-			delete b;
-			primitives[indexB] = primitives[Size - 1];
-			Size--;
+	//		delete b;
+	//		primitives[indexB] = primitives[Size - 1];
+	//		Size--;
 
-			float newRadius = radiusA + radiusB;
-			newRadius = newRadius > 1.0f ? 1.0f : newRadius;
-			UBall* newBall = new UBall(newRadius);
-			newBall->SetLocation(newLocation);
-			push_back(newBall);
-		}
+	//		float newRadius = radiusA + radiusB;
+	//		newRadius = newRadius > 1.0f ? 1.0f : newRadius;
+	//		UBall* newBall = new UBall(newRadius);
+	//		newBall->SetLocation(newLocation);
+	//		push_back(newBall);
+	//	}
 
-		//clear
-		for (int i = 0; i < mergeCount; i++)
-		{
-			mergeList[i].indexA = -1;
-			mergeList[i].indexB = -1;
-		}
-		mergeCount = 0;
-	}
+	//	//clear
+	//	for (int i = 0; i < mergeCount; i++)
+	//	{
+	//		mergeList[i].indexA = -1;
+	//		mergeList[i].indexB = -1;
+	//	}
+	//	mergeCount = 0;
+	//}
 
 	// í™”ë©´ ì˜ì—­ ë‚´ì— ìˆëŠ”ì§€ ì²´í¬í•˜ëŠ” í•¨ìˆ˜
 	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius, 
@@ -1279,7 +1421,7 @@ public:
 	int mergeCount = 0;
 };
 
-int DesireNumberOfBalls = UBall::TotalBalls;
+//int DesireNumberOfBalls = UBall::TotalBalls;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -1295,10 +1437,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// ìœˆë„ìš° í´ë˜ìŠ¤ ë“±ë¡
 	RegisterClassW(&wndClass);
 
-	// 1024 * 1024 í¬ê¸°ì˜ ìœˆë„ìš° ìƒì„±
-	HWND hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-								CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
+	// 1024 * 1024 Å©ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
+	srand((unsigned int)time(NULL));
 
 	//ê°ì¢… ìƒì„±/ì´ˆê¸°í™” ì½”ë“œë¥¼ ì—¬ê¸°ì— ì¶”ê°€
 	URenderer renderer;
@@ -1314,9 +1457,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	FVertexSimple* verticesSphere = sphere_vertices;
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
+	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
-	// êµ¬ì— ê´€í•œ Vertex BufferëŠ” í•œ ë²ˆë§Œ ìƒì„± í›„ ì¬ì‚¬ìš©
-	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
+	FPrimitiveVector PrimitiveVector;
+
+	// ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ß°ï¿½
+	UPlayer* player = new UPlayer();
+	PrimitiveVector.push_back(player);
+
+	// ï¿½Ê±ï¿½ ENEMYï¿½ï¿½ PREY ï¿½ï¿½ï¿½ï¿½
+	for (int i = 0; i < 10; ++i)
+	{
+		PrimitiveVector.push_back(new UEnemy());
+		PrimitiveVector.push_back(new UPrey());
+	}
+
+	//// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Vertex Bufferï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
 
@@ -1338,11 +1495,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0f;
 
-	// ê³µ í•˜ë‚˜ ì¶”ê°€í•˜ê³  ì‹œì‘
-	FPrimitiveVector PrimitiveVector;
-	UBall* ball = new UBall();
-	PrimitiveVector.push_back(ball);
-	UCamera* cam = new UCamera(ball);
+	//// ï¿½ï¿½ ï¿½Ï³ï¿½ ï¿½ß°ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½
+	//FPrimitiveVector PrimitiveVector;
+	//UBall* ball = new UBall();
+	//PrimitiveVector.push_back(ball);
+	UCamera* cam = new UCamera();
 
 	// Dirty í”Œë˜ê·¸ë¥¼ ìœ„í•œ ë²¡í„° - ë Œë”ë§í•  ê°ì²´ì˜ ì¸ë±ìŠ¤ë§Œ ì €ì¥
 	std::vector<int> visiblePrimitives;
@@ -1372,22 +1529,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			PrimitiveVector[i]->Movement();
 		}
+		PrimitiveVector.ProcessGameLogic();
 
-		//collision check
-		PrimitiveVector.CollisionCheck(elastic, bCombination);
+		// 2. Ä«ï¿½Ş¶ï¿½ ï¿½Ã·ï¿½ï¿½Ì¾î¸¦ ï¿½ï¿½ï¿½ó°¡µï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
+		cam->UpdateCamera(PrimitiveVector.Player);
 
-		//Magnetic
-		if (bMagnetic)
-		{
-			PrimitiveVector.MagneticForce();
-		}
-		if (bExplosion)
-		{
-			PrimitiveVector.Explosion();
-			bExplosion = false;
-		}
+		////collision check
+		//PrimitiveVector.CollisionCheck(elastic, bCombination);
+		// 
+		////Magnetic
+		//if (bMagnetic)
+		//{
+		//	PrimitiveVector.MagneticForce();
+		//}
+		//if (bExplosion)
+		//{
+		//	PrimitiveVector.Explosion();
+		//	bExplosion = false;
+		//}
 
-		DesireNumberOfBalls = PrimitiveVector.size(); // ì—…ë°ì´íŠ¸ í›„ ê³µì˜ ê°œìˆ˜ ìµœì‹ í™”
+		//DesireNumberOfBalls = PrimitiveVector.size(); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ö½ï¿½È­
 
 		// Frame Update
 		renderer.Prepare();
@@ -1407,11 +1568,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// ë³´ì´ëŠ” ê°ì²´ë“¤ë§Œ ë Œë”ë§
 		for (int idx : visiblePrimitives)
 		{
-			UPrimitive* prim = PrimitiveVector[idx];
+			// ï¿½ï¿½Å©ï¿½ï¿½ ï¿½ó¿¡¼ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ Å©ï¿½ï¿½ ï¿½ï¿½ï¿½
+			UPrimitive* prim = PrimitiveVector[i];
 			FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
 			float renderedRadius = cam->GetCameraSpaceRadius(prim);
 			renderer.UpdateConstant(renderedLocation, renderedRadius);
-			renderer.RenderPrimitive(UBall::vertexBufferSphere, numVerticesSphere);
+			renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 		}
 
 		// ImGui Update
@@ -1419,22 +1581,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
-		// ImGui UI ì»¨íŠ¸ë¡¤ ì¶”ê°€ëŠ” ImGui::NewFrame()ê³¼ ImGui::Render() ì‚¬ì´ì—
-		ImGui::Begin("Jungle Property Window");
-		ImGui::Text("Hello Jungle World!");
+		ImGui::Begin("Game Info");
+		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+		ImGui::Text("Objects: %d", PrimitiveVector.size());
 
-
-		ImGui::Checkbox("Manentic ", &bMagnetic);
-
-		if (ImGui::Button("Explore"))
+		// ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½Ó¼ï¿½ï¿½ï¿½ ï¿½Ø½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½
+		if (PrimitiveVector.Player)
 		{
-			bExplosion = !bExplosion;
+			EAttribute attr = PrimitiveVector.Player->GetAttribute();
+			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+			ImGui::Text("Player Attribute: %s", attrText);
 		}
-
-		ImGui::Checkbox("Combine", &bCombination);
-
-
 		ImGui::End();
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -1458,10 +1617,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
-	// ì†Œë©¸ì— í•„ìš”í•œ ì½”ë“œ 
-	renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
+	//// ï¿½Ò¸ê¿¡ ï¿½Ê¿ï¿½ï¿½ï¿½ ï¿½Úµï¿½ 
+	//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
 
+	// WinMainï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	renderer.ReleaseVertexBuffer(vertexBufferSphere);
 	renderer.ReleaseConstantBuffer();
+
 	renderer.ReleaseShader();
 	renderer.Release();
 
