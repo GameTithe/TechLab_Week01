@@ -797,14 +797,16 @@ public:
 class UCamera
 {
 public:
+	static UCamera* Main;
 	FVector Location;
 	float RenderScale = 1.0f;
 	float TargetRenderScale = 1.0f;
 
-	float RefRadius = 0.2f;    // RenderScale = 1.0 Í∏∞Ï?
-	float MinScale = 0.15f;    // ?§Ï????òÌïú??(?àÎ¨¥ ?ëÏïÑ?∏ÏÑú ?êÏ≤ò??Î≥¥Ïù¥ÏßÄ ?äÍ≤å)
-	float MaxScale = 2.0f;     // ?§Ï????ÅÌïú??(Í≥ºÎèÑ??Ï§???Î∞©Ï?)
-	float SmoothT = 0.2f;      // Lerp ÎπÑÏú®
+	float RefRadius = 0.2f;    // Radius makes RenderScale = 1.0
+	float MinScale = 0.15f;    // Prevent too small
+	float MaxScale = 2.0f;     // Upper limit
+	float SmoothT = 0.2f;      // Lerp value
+
 public:
 	void SetLocation(FVector location)
 	{
@@ -823,9 +825,6 @@ public:
 			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
 			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
 
-			float t = 0.3f;
-			RenderScale = t * TargetRenderScale + (1.0 - t) * RenderScale;
-			float diff = RenderScale - TargetRenderScale;
 			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
 			{
 				RenderScale = TargetRenderScale;
@@ -833,14 +832,26 @@ public:
 		}
 	}
 
-	FVector GetCameraSpaceLocation(UPrimitive* primitive)
+	FVector GetCameraSpaceLocation(UPrimitive* Primitive)
 	{
-		return (primitive->GetLocation() - this->Location) * RenderScale;
+		return (Primitive->GetLocation() - this->Location) * RenderScale;
 	}
 
-	float GetCameraSpaceRadius(UPrimitive* primitive)
+	float GetCameraSpaceRadius(UPrimitive* Primitive)
 	{
-		return primitive->GetRadius() * RenderScale;
+		return Primitive->GetRadius() * RenderScale;
+	}
+
+	static FVector ConvertToWorldSpace(FVector CameraSpaceCoord)
+	{
+		if (Main)
+		{
+			return CameraSpaceCoord / Main->RenderScale + Main->Location;
+		}
+		else
+		{
+			return CameraSpaceCoord; // Fallback
+		}
 	}
 };
 
@@ -1180,26 +1191,28 @@ public:
 //ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static Î©§Î≤Ñ Î≥Ä??Ï¥àÍ∏∞??
 
 
-class Controller
+class UController
 {
 public:
 	UPlayer** PlayerCells = nullptr;
 	int MaxCount = 0;
 	int Count = 0;
+	bool bIsEnabled = false;
 
 public:
-	Controller(int MaxCount)
+	UController(int MaxCount)
 	{
-		MaxCount = 4;
+		this->MaxCount = MaxCount;
 		Count = 0;
 		PlayerCells = new UPlayer * [MaxCount];
 		for (int i = 0; i < MaxCount; ++i)
 		{
 			PlayerCells[i] = nullptr;
 		}
+		bIsEnabled = false;
 	}
 
-	~Controller()
+	~UController()
 	{
 		for (int i = 0; i < Count; ++i)
 		{
