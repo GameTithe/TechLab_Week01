@@ -1100,6 +1100,11 @@ public:
 	EAttribute Attribute;
 };
 
+FVector GetRandomNoiseVector(float Intensity)
+{
+	return FVector((rand() / (float)RAND_MAX) * Intensity, (rand() / (float)RAND_MAX) * Intensity, 0.0f);
+}
+
 class UEnemy : public UPrimitive
 {
 public:
@@ -1116,7 +1121,8 @@ public:
 		// TODO: Change FVector Instead Cam Location'
 		if (UCamera::Main != nullptr)
 		{
-			Velocity = (UCamera::Main->Location - Location) * enemySpeed * 10;
+			FVector TargetLocation = UCamera::Main->Location + GetRandomNoiseVector(0.5f);
+			Velocity = (TargetLocation - Location) * enemySpeed * 10;
 		}
 		else
 		{
@@ -1845,6 +1851,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// ★★ 수정 1: 게임 핵심 객체들을 WinMain 상단에 '선언'만 해둡니다.
 	FPrimitiveVector PrimitiveVector;
 	UCamera* cam = new UCamera();
+	UCamera::Main = cam;
+
 	UEnemySpawner spawner(200, 100);
 
 	// --- 타이머 설정 ---
