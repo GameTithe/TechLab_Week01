@@ -986,6 +986,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
 				PrimitiveVector.Player = nullptr;
+				Cam->Location = FVector(0.0f, 0.0f, 0.0f);
+				Cam->RenderScale = 1.0f;
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
 				Controller = new UController(10);
