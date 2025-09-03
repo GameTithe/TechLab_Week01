@@ -84,6 +84,7 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	int mouseX = pt.x;
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
+
 	// Name UI
 	float nameRatio[2] = { 0.5f, 0.5f };
 	float targetSize[2] = { winW, winH };
@@ -140,5 +141,41 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 		action.menu = true;
 		MenuAction = action;
 	}
+	return MenuAction;
+}
+
+MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
+{
+	MenuActions MenuAction;
+	MenuAction.gameover = true;
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	float winW = (float)(rect.right - rect.left);
+	float winH = (float)(rect.bottom - rect.top);
+	float winSize[2] = { winW, winH };
+	POINT pt;
+	GetCursorPos(&pt);
+	ScreenToClient(hWnd, &pt);
+	int mouseX = pt.x;
+	int mouseY = pt.y;
+	float mousePos[2] = { mouseX, mouseY };
+	 
+	// Exit UI
+	float exitRatio[2] = { 0.9f, 0.95f };
+	float exitUIOffset[2] = { 50.0f, 100.0f }; 
+
+	float targetSize[2] = { 200, 200 };
+	float hoveringSize[2] = { targetSize[0] - exitUIOffset[0],  targetSize[1] - exitUIOffset[1] };
+	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+	MenuActions action;
+	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
+	{
+		action.exit = true;
+		MenuAction = action; 
+	} 
 	return MenuAction;
 }

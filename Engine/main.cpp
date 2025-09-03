@@ -266,8 +266,7 @@ struct Merge
 
 class FPrimitiveVector
 {
-public:
-	// ?�레?�어 객체???�게 ?�근?�기 ?�한 ?�인??
+public: 
 	UPlayer* Player = nullptr;
 
 	FPrimitiveVector()
@@ -803,10 +802,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		renderer.Prepare();
 		renderer.PrepareUnitShader();
-		ImGui_ImplDX11_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-		 
 
 		//Test Time
 		LARGE_INTEGER now;
@@ -814,7 +809,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
 
+		
+		// --- 렌더링 로직 ---
+		renderer.PrepareUnitShader();
+		std::vector<int> visiblePrimitives, invisiblePrimitives;
+		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
+
+		for (int idx : visiblePrimitives)
+		{
+			UPrimitive* prim = PrimitiveVector[idx];
+			if (prim != nullptr)
+			{
+				FVector objectColor;
+				switch (prim->GetAttribute())
+				{
+				case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
+				case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
+				case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
+				}
+				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
+				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
+				// renderer.UpdateConstant(renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
+				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+			}
+		}
+		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
 		 
+
 		////////// UI TEST //////////  
 		switch (ScreenState)
 		{
@@ -866,6 +888,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		case Screen::Running:
 		{
+			ImGui_ImplDX11_NewFrame();
+			ImGui_ImplWin32_NewFrame();
+			ImGui::NewFrame();
+
+			MenuActions action = menuUI.DrawRunningMenu(renderer, hWnd);
 			auto now = std::chrono::steady_clock::now(); // 현재 시간 가져오기
 
 			// ENEMY 타이머 확인 및 생성
@@ -893,6 +920,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 			if (Controller.Count > 0)
 			{
+				// 카메라 업데이트
 				FVector CenterOfMass;
 				if (Controller.TryGetCenterOfMass(CenterOfMass))
 				{
@@ -901,7 +929,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					float DesiredScale = ReferenceRadius / SwarmRadius;
 					Cam->UpdateCamera(CenterOfMass, DesiredScale);
 				}
-				//cam->UpdateCamera(PrimitiveVector.Player);
 			}
 			// --- 업데이트 로직 ---
 			for (int i = 0; i < PrimitiveVector.size(); i++)
@@ -915,6 +942,31 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			{
 				ScreenState = Screen::EndingMenu;
 			}
+
+
+			// --- 게임 UI (ImGui) ---
+			ImGui::Begin("Game Info");
+			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+			ImGui::Text("Objects: %d", PrimitiveVector.size());
+			if (PrimitiveVector.Player)
+			{
+				EAttribute attr = PrimitiveVector.Player->GetAttribute();
+				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+				ImGui::Text("Player Attribute: %s", attrText);
+			}
+			ImGui::End();
+
+			// --- 프레임 종료 ---
+			ImGui::Render();
+			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+
+			if (action.menu)
+			{
+ 				ScreenState = Screen::MainMenu;
+			}
+			if (action.exit)
+				bIsExit = true;
 			break;
 		}
 		case Screen::EndingMenu:
@@ -942,50 +994,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 
 		}
-			// --- 렌더링 로직 ---
-		renderer.PrepareShader();
-		std::vector<int> visiblePrimitives, invisiblePrimitives;
-		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
-
-		for (int idx : visiblePrimitives)
-		{
-			UPrimitive* prim = PrimitiveVector[idx];
-			if (prim != nullptr)
-			{
-				FVector objectColor;
-				switch (prim->GetAttribute())
-				{
-				case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
-				case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
-				case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
-				}
-				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
-				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
-				// renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
-				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
-			}
-		}
-		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
-
-		// --- 게임 UI (ImGui) ---
-		ImGui::Begin("Game Info");
-		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-		ImGui::Text("Objects: %d", PrimitiveVector.size());
-		if (PrimitiveVector.Player)
-		{
-			EAttribute attr = PrimitiveVector.Player->GetAttribute();
-			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-			ImGui::Text("Player Attribute: %s", attrText);
-		}
-		ImGui::End();
 		
-
-
-
-		// --- 프레임 종료 ---
-		ImGui::Render();
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
 		// Swap Buffer
 		renderer.SwapBuffer();
@@ -1009,8 +1018,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	renderer.ReleaseShader();
 	renderer.ReleaseUIResource();
 	renderer.Release();
-
-	      
-
+	 
 	return 0;
 }
