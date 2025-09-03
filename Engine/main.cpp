@@ -5,6 +5,8 @@
 #include <chrono>
 
 
+#include <vector>
+
 // D3D libraries
 #pragma comment(lib, "user32")
 #pragma comment(lib, "d3d11")
@@ -21,18 +23,29 @@
 #include "imGui/imgui_impl_win32.h"
 
 
-// UI
+// UI 
 #include "UIInfo.h"
-#include <iostream> // cout 사용을 위해
-#include <ctime>    // time() 함수를 위해
-#include <cstdlib>  // srand(), rand() 함수를 위해
-#include <cstdlib>
+#include <iostream> 
+#include <ctime>    
+#include <cstdlib>   
 
 HWND hWnd = nullptr;
+ 
+#include <wincodec.h>
+#pragma comment(lib, "windowscodecs.lib")  
+
+//Manager
+#include "InputManager.h"
+
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// 각종 메세지를 처리할 함수
+const int winWidth = 1024;
+const int winHeight = 1024;
+
+static bool MouseClicked = false; 
+
+// ���� �޼����� ó���� �Լ� 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
@@ -40,12 +53,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		return true;
 	}
 
+	InputManager::Input().ProcessMessage(hWnd, message, wParam, lParam);
+
+
 	switch (message)
 	{
 	case WM_DESTROY:
 		// signal the the app should quit
 		PostQuitMessage(0);
 		break;
+		 
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
@@ -170,15 +187,15 @@ struct FVector
 	}
 };
 
-// 속성을 나타내기 위한 열거형(enum) 정의
+// ?�성???��??�기 ?�한 ?�거??enum) ?�의
 enum EAttribute
 {
-	WATER, // 물
-	FIRE,  // 불
-	GRASS  // 풀
+	WATER, // �?
+	FIRE,  // �?
+	GRASS  // ?�
 };
 
-// 속성 상성을 체크하는 도우미 함수
+// ?�성 ?�성??체크?�는 ?�우�??�수
 bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
 {
 	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
@@ -198,34 +215,38 @@ inline float Dot(const FVector& v1, const FVector& v2)
 class URenderer
 {
 public:
-	// D3D11 Device, Device Context, Swap Chain을 관리하기 위한 포인터들 
-	ID3D11Device* Device = nullptr;						//Gpu와 통신 하기 위한 Device
-	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU 명령 실행을 담당하는 Context
-	IDXGISwapChain* SwapChain = nullptr;				// 프레인 버터를 교체하는 데 사용되는 Swap Chain
+	// D3D11 Device, Device Context, Swap Chain??관리하�??�한 ?�인?�들 
+	ID3D11Device* Device = nullptr;						//Gpu?� ?�신 ?�기 ?�한 Device
+	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU 명령 ?�행???�당?�는 Context
+	IDXGISwapChain* SwapChain = nullptr;				// ?�레??버터�?교체?�는 ???�용?�는 Swap Chain
 
-	// 렌더링에 필요한 리소스 및 상태를 관리하기 위한 변수들 
-	ID3D11Texture2D* FrameBuffer = nullptr;					// 화면 출력용
-	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// 텍스처를 렌터 타겟으로 사용하는 뷰
-	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer 상태 (컬링, 채우기 모드 등) 
-	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (셰이더에 전달할 데이터 저장용)
+	// ?�더링에 ?�요??리소??�??�태�?관리하�??�한 변?�들 
+	ID3D11Texture2D* FrameBuffer = nullptr;					// ?�면 출력??
+	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// ?�스처�? ?�터 ?�겟으�??�용?�는 �?
+	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer ?�태 (컬링, 채우�?모드 ?? 
+	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (?�이?�에 ?�달???�이???�?�용)
 
 
 	//UI
 	ID3D11VertexShader* UIVS = nullptr;
 	ID3D11PixelShader* UIPS = nullptr;
 	ID3D11InputLayout* UIInputLayout = nullptr;
-	ID3D11Buffer* UIVertexBuffer = nullptr;  // 동적 VB
+ 	ID3D11Buffer* UIVertexBuffer = nullptr;  // ���� VB
 	ID3D11Buffer* UIPerFrameCB = nullptr;
-	ID3D11ShaderResourceView* UISRV = nullptr;
+	ID3D11ShaderResourceView* UITitleSRV = nullptr;
+	ID3D11ShaderResourceView* UIStartSRV = nullptr;
+	ID3D11ShaderResourceView* UIExitSRV = nullptr; 
+
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
-	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
-	D3D11_VIEWPORT ViewportInfo;	// 렌더링 영역을 정의하는 뷰포트 정보 
+	FLOAT ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	D3D11_VIEWPORT ViewportInfo;	// ������ ������ �����ϴ� ����Ʈ ���� 
+	 
 
 public:
 
-	// 렌더러 초기화 함수
+	// ?�더??초기???�수
 	void Create(HWND hWindow)
 	{
 		CreateDeviceAndSwapChain(hWindow);
@@ -234,33 +255,33 @@ public:
 
 		CreateRasterizerState();
 
-		// depth/stencil buffer & blend state는 다루지 않음 
+		// depth/stencil buffer & blend state???�루지 ?�음 
 	}
 
 
 	void CreateDeviceAndSwapChain(HWND hWindow)
 	{
-		// 지원하는 Direct3D 기능 레벨을 정의 
+		// 지?�하??Direct3D 기능 ?�벨???�의 
 		D3D_FEATURE_LEVEL featurelevels[] = { D3D_FEATURE_LEVEL_11_0 };
 
 		// Swap Chain 
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-		swapChainDesc.BufferDesc.Width = 0; //창 크기에 맞기 자동조정
-		swapChainDesc.BufferDesc.Height = 0; //창 크기에 맞기 자동조정	
-		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // 일반적인 RGBA 포맷
-		swapChainDesc.SampleDesc.Count = 1; // 멀티 샘플링을 사용하지 않음
-		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // 렌더 타겟으로 사용
-		swapChainDesc.BufferCount = 2; // 더블 버퍼링
+		swapChainDesc.BufferDesc.Width = 0; //�??�기??맞기 ?�동조정
+		swapChainDesc.BufferDesc.Height = 0; //�??�기??맞기 ?�동조정	
+		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // ?�반?�인 RGBA ?�맷
+		swapChainDesc.SampleDesc.Count = 1; // 멀???�플링을 ?�용?��? ?�음
+		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // ?�더 ?�겟으�??�용
+		swapChainDesc.BufferCount = 2; // ?�블 버퍼�?
 		swapChainDesc.OutputWindow = hWindow;
-		swapChainDesc.Windowed = TRUE; // 창 모드 
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // 스왑 방식
+		swapChainDesc.Windowed = TRUE; // �?모드 
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ?�왑 방식
 
 		// Create Dircet Deivce & Swap Chain
 		D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
 									  D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
 									  featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
-		// SwapChain  정보 가져오기
+		// SwapChain  ?�보 가?�오�?
 		SwapChain->GetDesc(&swapChainDesc);
 
 		// Set Viewport
@@ -271,7 +292,7 @@ public:
 	{
 		if (DeviceContext)
 		{
-			DeviceContext->Flush(); // 남아있는 GPU 명령을 모두 실행
+			DeviceContext->Flush(); // ?�아?�는 GPU 명령??모두 ?�행
 		}
 
 		if (SwapChain)
@@ -289,13 +310,13 @@ public:
 
 	void CreateFrameBuffer()
 	{
-		// 백 버처 텍스처 가져오기
+		// �?버처 ?�스�?가?�오�?
 		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&FrameBuffer);
 
-		// RTV 생성
+		// RTV ?�성
 		D3D11_RENDER_TARGET_VIEW_DESC framebufferRTVdesc = {};
-		framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // 일반적인 RGBA 포맷
-		framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D 텍스처로 설정	
+		framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // ?�반?�인 RGBA ?�맷
+		framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D ?�스처로 ?�정	
 
 		Device->CreateRenderTargetView(FrameBuffer, &framebufferRTVdesc, &FrameBufferRTV);
 	}
@@ -317,8 +338,8 @@ public:
 	void CreateRasterizerState()
 	{
 		D3D11_RASTERIZER_DESC rasterizerDesc = {};
-		rasterizerDesc.FillMode = D3D11_FILL_SOLID; // 채우기 모드  
-		rasterizerDesc.CullMode = D3D11_CULL_BACK; // 백 페이스 컬링  
+		rasterizerDesc.FillMode = D3D11_FILL_SOLID; // 채우�?모드  
+		rasterizerDesc.CullMode = D3D11_CULL_BACK; // �??�이??컬링  
 
 		Device->CreateRasterizerState(&rasterizerDesc, &RasterizerState);
 	}
@@ -336,7 +357,7 @@ public:
 	{
 		RasterizerState->Release();
 
-		DeviceContext->OMSetRenderTargets(0, nullptr, nullptr); // 렌더 타겟을 초기화
+		DeviceContext->OMSetRenderTargets(0, nullptr, nullptr); // ?�더 ?�겟을 초기??
 
 
 		ReleaseFrameBuffer();
@@ -345,20 +366,122 @@ public:
 
 	void SwapBuffer()
 	{
-		SwapChain->Present(1, 0); // 1: VSync 활성화 => GPU 프레임 속도 & 화면 갱신 속도 동기화
-	}
-
-	void CreateUIResource()
+		SwapChain->Present(1, 0); // 1: VSync ?�성??=> GPU ?�레???�도 & ?�면 갱신 ?�도 ?�기??
+	} 
+	void CreateUIResources()
 	{
-		//쉐이더 컴파일
+		//���̴� ������
+		ID3DBlob* vsBlob = nullptr, * psBlob = nullptr;
+		D3DCompileFromFile(L"UI.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vsBlob, nullptr);
+		D3DCompileFromFile(L"UI.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &psBlob, nullptr);
+
+		Device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &UIVS);
+		Device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &UIPS);
+		
+		D3D11_INPUT_ELEMENT_DESC uiInputLayout[] = {
+		{"POSITION",0,DXGI_FORMAT_R32G32_FLOAT,       0, 0,  D3D11_INPUT_PER_VERTEX_DATA,0},
+		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 8,  D3D11_INPUT_PER_VERTEX_DATA,0},
+		{"COLOR",   0,DXGI_FORMAT_R32G32B32A32_FLOAT, 0,16,  D3D11_INPUT_PER_VERTEX_DATA,0},
+		};
+		Device->CreateInputLayout(uiInputLayout, ARRAYSIZE(uiInputLayout),
+			vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &UIInputLayout);
+
+		// ���� VB 
+		D3D11_BUFFER_DESC vertexBufferDesc{};
+		vertexBufferDesc.ByteWidth = sizeof(UIVertex) * UIVBMaxVerts;
+		vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Device->CreateBuffer(&vertexBufferDesc, nullptr, &UIVertexBuffer);
+
+		//Perframe CB
+		D3D11_BUFFER_DESC constBufferDesc{};
+		constBufferDesc.ByteWidth = 16; // float4 ���� (WindowSize(2)+pad(2))
+		constBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		constBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		constBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Device->CreateBuffer(&constBufferDesc, nullptr, &UIPerFrameCB);
+
+		// Sampler
+		D3D11_SAMPLER_DESC samplerDesc{};
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.AddressU = samplerDesc.AddressV = samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		Device->CreateSamplerState(&samplerDesc, &UISampler);
+
+
+		//// 6) ������ (�Ϲ� ����)
+		D3D11_BLEND_DESC blendDesc{}; blendDesc.RenderTarget[0].BlendEnable = TRUE;
+		blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		Device->CreateBlendState(&blendDesc, &UIAlphaBlend);
+		 
+		LoadTextureWIC(L"ui_title.png", &UITitleSRV);
+		LoadTextureWIC(L"ui_start.png", &UIStartSRV);
+		LoadTextureWIC(L"ui_exit.png", &UIExitSRV);
+		 
 	}
 
 	void ReleaseUIResource()
-	{
-
+	{ 
+		if (UIAlphaBlend) { UIAlphaBlend->Release(); UIAlphaBlend = nullptr; }
+		if (UISampler) { UISampler->Release();    UISampler = nullptr; }
+		if (UITitleSRV) { UITitleSRV->Release();   UITitleSRV = nullptr; }
+		if (UIStartSRV) { UIStartSRV->Release();   UIStartSRV = nullptr; }
+		if (UIExitSRV) { UIExitSRV->Release();   UIExitSRV = nullptr; }
+		if (UIPerFrameCB) { UIPerFrameCB->Release(); UIPerFrameCB = nullptr; }
+		if (UIVertexBuffer) { UIVertexBuffer->Release(); UIVertexBuffer = nullptr; }
+		if (UIInputLayout) { UIInputLayout->Release(); UIInputLayout = nullptr; }
+		if (UIPS) { UIPS->Release();         UIPS = nullptr; }
+		if (UIVS) { UIVS->Release();         UIVS = nullptr; }
 	}
 
+	HRESULT LoadTextureWIC(const wchar_t* path, ID3D11ShaderResourceView** outSRV)
+	{
+		*outSRV = nullptr;
+		IWICImagingFactory* factory = nullptr; IWICBitmapDecoder* decoder = nullptr;
+		IWICBitmapFrameDecode* frame = nullptr; IWICFormatConverter* converter = nullptr;
+		
+		HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+			IID_PPV_ARGS(&factory));
 
+		if (FAILED(hr)) return hr;
+		hr = factory->CreateDecoderFromFilename(path, nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder);
+		if (SUCCEEDED(hr)) hr = decoder->GetFrame(0, &frame);
+		if (SUCCEEDED(hr)) hr = factory->CreateFormatConverter(&converter);
+		if (SUCCEEDED(hr)) hr = converter->Initialize(frame, GUID_WICPixelFormat32bppRGBA,
+			WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+		
+		UINT w = 0, h = 0; if (SUCCEEDED(hr)) { frame->GetSize(&w, &h); }
+
+		std::vector<uint8_t> pixels; pixels.resize(w * h * 4);
+		if (SUCCEEDED(hr)) hr = converter->CopyPixels(nullptr, w * 4, (UINT)pixels.size(), pixels.data());
+		
+		if (SUCCEEDED(hr)) {
+			D3D11_TEXTURE2D_DESC td{}; td.Width = w; td.Height = h; td.MipLevels = 1; td.ArraySize = 1;
+			td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1;
+			td.Usage = D3D11_USAGE_IMMUTABLE; td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			D3D11_SUBRESOURCE_DATA srd{ pixels.data(), (UINT)(w * 4), 0 };
+			ID3D11Texture2D* tex = nullptr; hr = Device->CreateTexture2D(&td, &srd, &tex);
+			if (SUCCEEDED(hr)) {
+				D3D11_SHADER_RESOURCE_VIEW_DESC sd{};
+				sd.Format = td.Format; sd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				sd.Texture2D.MipLevels = 1;
+				hr = Device->CreateShaderResourceView(tex, &sd, outSRV);
+				tex->Release();
+			}
+		}
+		if (converter) converter->Release();
+		if (frame) frame->Release();
+		if (decoder) decoder->Release();
+		if (factory) factory->Release();
+		return hr;
+	}
+		 
 	//Shader
 public:
 	ID3D11VertexShader* SimpleVertexShader;
@@ -383,8 +506,8 @@ public:
 			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		// vertesxShader의 입력 시그니처와 호환되는지 확인해야되니까
-		// layout에서 vertexShaderCSO를 필요로함 
+		// vertesxShader???�력 ?�그?�처?� ?�환?�는지 ?�인?�야?�니�?
+		// layout?�서 vertexShaderCSO�??�요로함 
 		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
@@ -441,6 +564,31 @@ public:
 		}
 	}
 
+	void PrepareShaderUI(ID3D11ShaderResourceView* UISRV)
+	{ 
+		DeviceContext->IASetInputLayout(UIInputLayout);
+		DeviceContext->VSSetShader(UIVS, nullptr, 0);
+		DeviceContext->PSSetShader(UIPS, nullptr, 0);
+
+		DeviceContext->VSSetConstantBuffers(0, 1, &UIPerFrameCB);
+		DeviceContext->PSSetConstantBuffers(0, 1, &UIPerFrameCB);
+
+		DeviceContext->PSSetShaderResources(0, 1, &UISRV);
+
+
+		DeviceContext->PSSetSamplers(0, 1, &UISampler);
+
+		UINT stride = sizeof(UIVertex), offset = 0;
+		DeviceContext->IASetVertexBuffers(0, 1, &UIVertexBuffer, &stride, &offset);
+		DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		float blendFactor[4] = { 0,0,0,0 };
+		DeviceContext->OMSetBlendState(UIAlphaBlend, blendFactor, 0xffffffff);
+
+		DeviceContext->Draw(6, 0);
+
+	}
+
 	void RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
 	{
 		UINT offset = 0;
@@ -479,9 +627,9 @@ public:
 
 	void CreateConstantBuffer()
 	{
-		// 16byte 단위로 압축해야됨 
+		// 16byte ?�위�??�축?�야??
 		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16배수 정렬 
+		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16배수 ?�렬 
 		constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -514,9 +662,106 @@ public:
 		}
 	}
 
+	void UpdateConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])
+	{  
+		if (UIPerFrameCB) 
+		{
+			UIInfo mainUI = { {winSize[0], winSize[1]}, isHovering ? 1 : 0, 0.0f};
 
+			D3D11_MAPPED_SUBRESOURCE m;
+			DeviceContext->Map(UIPerFrameCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+			memcpy(m.pData, &mainUI, sizeof(mainUI));
+			DeviceContext->Unmap(UIPerFrameCB, 0);
+
+			float w = targetSize[0] * (winSize[0] / winWidth), h = targetSize[1] * (winSize[1] / winHeight);
+			float cx = winSize[0] * ratio[0], cy = winSize[1] * ratio[1];
+			float x0 = cx - w * 0.5f, y0 = cy - h * 0.5f;
+			float x1 = cx + w * 0.5f, y1 = cy + h * 0.5f;
+
+			UIVertex verts[6] = {
+			{x0,y0, 0,0, 1,1,1,1},
+			{x1,y0, 1,0, 1,1,1,1},
+			{x1,y1, 1,1, 1,1,1,1},
+			{x0,y0, 0,0, 1,1,1,1},
+			{x1,y1, 1,1, 1,1,1,1},
+			{x0,y1, 0,1, 1,1,1,1},
+			};
+
+			DeviceContext->Map(UIVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+			memcpy(m.pData, verts, sizeof(verts));
+			DeviceContext->Unmap(UIVertexBuffer, 0);
+
+		} 
+	}
 };
+ 
+enum class Screen { MainMenu, Running, EndingMenu, Count};
+static Screen ScreenState = Screen::MainMenu;
 
+struct MenuActions { bool start = false; bool exit = false;  };
+
+MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
+{
+	MenuActions MenuAction{};
+
+
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	float winW = (float)(rect.right - rect.left);
+	float winH = (float)(rect.bottom - rect.top);
+	float winSize[2] = { winW, winH }; 
+
+	POINT pt;
+	GetCursorPos(&pt);              // ��ũ�� ��ǥ��
+	ScreenToClient(hWnd, &pt);      // ������ Ŭ���̾�Ʈ ��ǥ�� ��ȯ
+	int mouseX = pt.x;
+	int mouseY = pt.y;
+	float mousePos[2] = { mouseX, mouseY };
+	 
+
+	// Title UI   
+	float titleRatio[2] = { 0.5f, 0.3f };
+	float targetSize[2] = { 500, 500 };
+	renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
+	renderer.PrepareShaderUI(renderer.UITitleSRV);
+
+	// Start UI 
+	float startRatio[2] = { 0.5f, 0.7f };
+	float startUIOffset[2] = { 50.0f, 100.f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1] };
+
+	UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
+	bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
+	renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
+	renderer.PrepareShaderUI(renderer.UIStartSRV);
+
+
+	// Exit UI 
+	float exitRatio[2] = { 0.5f, 0.8f };
+	float exitUIOffset[2] = { 50.0f, 100.0f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+
+	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
+	renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+	// ====== Ŭ�� ó�� ====== 
+	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
+	{
+		MenuAction.start = true;
+	}
+	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
+	{
+		MenuAction.exit = true;
+		//NewController->bIsEnabled = true;
+	}
+
+	return MenuAction; 
+}
+  
 class UPrimitive
 {
 public:
@@ -556,9 +801,9 @@ public:
 	float RenderScale = 1.0f;
 	float TargetRenderScale = 1.0f;
 
-	float RefRadius = 0.2f;    // RenderScale = 1.0 기준
-	float MinScale = 0.15f;    // 스케일 하한선 (너무 작아져서 점처럼 보이지 않게)
-	float MaxScale = 2.0f;     // 스케일 상한선 (과도한 줌 인 방지)
+	float RefRadius = 0.2f;    // RenderScale = 1.0 기�?
+	float MinScale = 0.15f;    // ?��????�한??(?�무 ?�아?�서 ?�처??보이지 ?�게)
+	float MaxScale = 2.0f;     // ?��????�한??(과도??�???방�?)
 	float SmoothT = 0.2f;      // Lerp 비율
 public:
 	void SetLocation(FVector location)
@@ -570,7 +815,7 @@ public:
 	{
 		SetLocation(Player->GetLocation());
 
-		// 실제 렌더링 스케일을 목표 스케일을 향해 점진적으로 조정
+		// ?�제 ?�더�??��??�을 목표 ?��??�을 ?�해 ?�진?�으�?조정
 		if (RenderScale != TargetRenderScale)
 		{
 			float playerRadius = std::max(Player->GetRadius(), 0.001f);
@@ -751,20 +996,20 @@ public:
 class UPlayer : public UPrimitive
 {
 public:
-	// 생성자: 플레이어 생성 시 호출됨
+	// ?�성?? ?�레?�어 ?�성 ???�출??
 	UPlayer()
 	{
 		// 1. �÷��̾� �Ӽ��� �������� ����
-		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 중 하나를 랜덤으로 뽑아 속성으로 지정
+		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 �??�나�??�덤?�로 뽑아 ?�성?�로 지??
 
 		Radius = 0.08f; // �ʱ� ũ��
 		Mass = Radius * 10.0f;
-		Location = FVector(0.0f, 0.0f, 0.0f); // 화면 중앙에서 시작
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // 속도는 마우스를 따르므로 0으로 시작
+		Location = FVector(0.0f, 0.0f, 0.0f); // ?�면 중앙?�서 ?�작
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�도??마우?��? ?�르므�?0?�로 ?�작
 		Score = 0;
 	}
 
-	// UPrimitive의 규칙(순수 가상 함수)에 따라 모든 함수를 구현
+	// UPrimitive??규칙(?�수 가???�수)???�라 모든 ?�수�?구현
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 
@@ -773,26 +1018,26 @@ public:
 
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// 규칙에 따라 GetAttribute 함수를 구현
+	// 규칙???�라 GetAttribute ?�수�?구현
 	virtual EAttribute GetAttribute() const override { return Attribute; }
-	// 사용되지 않는 기능들은 기본 형태로 구현
+	// ?�용?��? ?�는 기능?��? 기본 ?�태�?구현
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// 플레이어의 핵심 로직: 마우스를 따라 움직임
+	// ?�레?�어???�심 로직: 마우?��? ?�라 ?�직임
 	virtual void Movement() override
 	{
-		extern HWND hWnd; // WinMain의 hWnd를 외부에서 참조
+		extern HWND hWnd; // WinMain??hWnd�??��??�서 참조
 
 		POINT mousePos;
-		GetCursorPos(&mousePos); // 마우스의 스크린 좌표를 얻음
-		ScreenToClient(hWnd, &mousePos); // 스크린 좌표를 프로그램 창 내부 좌표로 변환
+		GetCursorPos(&mousePos); // 마우?�의 ?�크�?좌표�??�음
+		ScreenToClient(hWnd, &mousePos); // ?�크�?좌표�??�로그램 �??��? 좌표�?변??
 
 		RECT clientRect;
-		GetClientRect(hWnd, &clientRect); // 프로그램 창의 크기를 얻음
+		GetClientRect(hWnd, &clientRect); // ?�로그램 창의 ?�기�??�음
 
-		// 창 내부 좌표(e.g., 0~1024)를 게임 월드 좌표(-1.0 ~ 1.0)로 변환
+		// �??��? 좌표(e.g., 0~1024)�?게임 ?�드 좌표(-1.0 ~ 1.0)�?변??
 		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
 		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
 
@@ -800,13 +1045,13 @@ public:
 		Location.y = worldY;
 	}
 
-	// 크기와 점수를 조절하는 새로운 함수들
+	// ?�기?� ?�수�?조절?�는 ?�로???�수??
 	void AddScore(int amount) { Score += amount; }
 	int GetScore() const { return Score; }
 	void SetRadius(float newRadius)
 	{
 		Radius = newRadius;
-		// 크기가 변하면 질량도 같이 업데이트
+		// ?�기가 변?�면 질량??같이 ?�데?�트
 		Mass = Radius * 10.0f;
 	}
 
@@ -823,10 +1068,10 @@ public:
 class UEnemy : public UPrimitive
 {
 public:
-	// 생성자: ENEMY 생성 시 호출됨
+	// ?�성?? ENEMY ?�성 ???�출??
 	UEnemy()
 	{
-		// 무작위 속성, 위치, 속도, 크기 설정
+		// 무작???�성, ?�치, ?�도, ?�기 ?�정
 		Attribute = (EAttribute)(rand() % 3);
 		Location = GetRandomLocationOusideScreen();
 
@@ -834,11 +1079,11 @@ public:
 		Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
 		Velocity.y = (float)(rand() % 100 - 50) * enemySpeed;
 
-		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;  // 최소, 최대 크기 지정
+		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;  // 최소, 최�? ?�기 지??
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitive의 규칙에 따라 모든 함수를 구현
+	// UPrimitive??규칙???�라 모든 ?�수�?구현
 
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
@@ -846,13 +1091,13 @@ public:
 	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// 규칙에 따라 GetAttribute 함수를 구현
+	// 규칙???�라 GetAttribute ?�수�?구현
 	virtual EAttribute GetAttribute() const override { return Attribute; }
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// ENEMY의 움직임: 기존 UBall처럼 벽에 튕김
+	// ENEMY???�직임: 기존 UBall처럼 벽에 ?��?
 	virtual void Movement() override
 	{
 		Location += Velocity;
@@ -874,9 +1119,9 @@ public:
 		{
 			Vector.x = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
 			Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
-			Vector.z = 0.0f; // Z는 고정
+			Vector.z = 0.0f; // Z??고정
 		}
-		// [-1, 1] 정사각형 내부인지 직접 조건 체크
+		// [-1, 1] ?�사각형 ?��??��? 직접 조건 체크
 		while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
 			   (Vector.y >= -1.0f && Vector.y <= 1.0f));
 
@@ -894,18 +1139,18 @@ public:
 class UPrey : public UPrimitive
 {
 public:
-	// 생성자: PREY 생성 시 호출됨
+	// ?�성?? PREY ?�성 ???�출??
 	UPrey()
 	{
-		// 무작위 속성, 위치, 크기 설정
+		// 무작???�성, ?�치, ?�기 ?�정
 		Attribute = (EAttribute)(rand() % 3);
 		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // 움직이지 않으므로 속도는 0
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�직이지 ?�으므�??�도??0
 		Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitive의 규칙에 따라 모든 함수를 구현
+	// UPrimitive??규칙???�라 모든 ?�수�?구현
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 	virtual FVector GetVelocity() const override { return Velocity; }
@@ -917,10 +1162,10 @@ public:
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// PREY의 움직임: 움직이지 않음
+	// PREY???�직임: ?�직이지 ?�음
 	virtual void Movement() override
 	{
-		// 아무 코드도 없음
+		// ?�무 코드???�음
 	}
 
 public:
@@ -932,7 +1177,7 @@ public:
 };
 
 //int UBall::TotalBalls = 0;
-//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변수 초기화
+//ID3D11Buffer* UBall::vertexBufferSphere = nullptr; // static 멤버 변??초기??
 
 
 class Controller
@@ -976,7 +1221,7 @@ public:
 
 		for (int i = 0; i < Count; ++i)
 		{
-			// NRE 대비
+			// NRE ?��?
 			UPlayer* Cell = PlayerCells[i];
 			if (!Cell)
 			{
@@ -988,13 +1233,13 @@ public:
 			CenterY += Location.y * Mass;
 		}
 
-		// Fallback: 질량 합이 거의 0인 경우 오차 방지 차원에서 평균 위치 사용
+		// Fallback: 질량 ?�이 거의 0??경우 ?�차 방�? 차원?�서 ?�균 ?�치 ?�용
 		if (TotalMass < 1e-6)
 		{
 			CenterX = CenterY = 0.0f;
 			for (int i = 0; i < Count; ++i)
 			{
-				// NRE 대비
+				// NRE ?��?
 				UPlayer* Cell = PlayerCells[i];
 				if (!Cell)
 				{
@@ -1023,7 +1268,7 @@ struct Merge
 class FPrimitiveVector
 {
 public:
-	// 플레이어 객체에 쉽게 접근하기 위한 포인터
+	// ?�레?�어 객체???�게 ?�근?�기 ?�한 ?�인??
 	UPlayer* Player = nullptr;
 
 	FPrimitiveVector()
@@ -1049,8 +1294,8 @@ public:
 			ReSize();
 		}
 
-		// 만약 추가되는 객체가 플레이어라면, Player 포인터에 저장
-		// dynamic_cast는 UPrimitive*를 UPlayer*로 안전하게 변환 시도
+		// 만약 추�??�는 객체가 ?�레?�어?�면, Player ?�인?�에 ?�??
+		// dynamic_cast??UPrimitive*�?UPlayer*�??�전?�게 변???�도
 		UPlayer* playerCandidate = dynamic_cast<UPlayer*>(primitive);
 		if (playerCandidate != nullptr)
 		{
@@ -1084,16 +1329,16 @@ public:
 	}
 	void RemoveAt(int index)
 	{
-		// 유효하지 않은 인덱스면 즉시 종료
+		// ?�효?��? ?��? ?�덱?�면 즉시 종료
 		if (index < 0 || index >= Size)
 		{
 			return;
 		}
 
-		// 객체 메모리 해제
+		// 객체 메모�??�제
 		delete primitives[index];
 
-		// 마지막 원소를 현재 위치로 이동 (가장 빠른 제거 방법)
+		// 마�?�??�소�??�재 ?�치�??�동 (가??빠른 ?�거 방법)
 		primitives[index] = primitives[Size - 1];
 		primitives[Size - 1] = nullptr;
 		Size--;
@@ -1113,7 +1358,7 @@ public:
 		primitives = newPrimitives;
 	}
 
-	int size() const // 캡슐화를 대비해서 함수로 접근
+	int size() const // 캡슐?��? ?�비해???�수�??�근
 	{
 		return Size;
 	}
@@ -1129,12 +1374,12 @@ public:
 
 	void ProcessGameLogic()
 	{
-		if (Player == nullptr) return; // 플레이어가 없으면 아무것도 안 함
+		if (Player == nullptr) return; // ?�레?�어가 ?�으�??�무것도 ????
 
-		// 배열을 거꾸로 순회해야 객체 제거 시에도 안전함
+		// 배열??거꾸�??�회?�야 객체 ?�거 ?�에???�전??
 		for (int i = Size - 1; i >= 0; --i)
 		{
-			// 자기 자신(플레이어)과는 충돌 검사를 하지 않음
+			// ?�기 ?�신(?�레?�어)과는 충돌 검?��? ?��? ?�음
 			if (primitives[i] == Player)
 			{
 				continue;
@@ -1144,22 +1389,22 @@ public:
 			float dist2 = FVector::Distance2(Player->GetLocation(), other->GetLocation());
 			float minDist = Player->GetRadius() + other->GetRadius();
 
-			// 충돌했다면
+			// 충돌?�다�?
 			if (dist2 < minDist * minDist)
 			{
-				// 이기는 상성인지 체크
+				// ?�기???�성?��? 체크
 				if (CheckWin(Player->GetAttribute(), other->GetAttribute()))
 				{
 					Player->AddScore(10);
 					Player->SetRadius(Player->GetRadius() + 0.005f); // ũ�� ����
 				}
-				else // 지거나 비기는 상성
+				else // 지거나 비기???�성
 				{
 					Player->AddScore(-5);
 					Player->SetRadius(Player->GetRadius() - 0.005f); // ũ�� ����
 				}
 
-				// 충돌한 객체는 제거
+				// 충돌??객체???�거
 				RemoveAt(i);
 			}
 		}
@@ -1183,7 +1428,7 @@ public:
 	//			float dist2 = FVector::Distance2(pos2, pos1);
 	//			float minDist = radius1 + radius2;
 
-	//			// 구와 구의 충돌처리 sqrt 비용이 비싸기 때문에 squre되어있는 상태에서 거리 비교
+	//			// 구�? 구의 충돌처리 sqrt 비용??비싸�??�문??squre?�어?�는 ?�태?�서 거리 비교
 	//			if (dist2 < minDist * minDist)
 	//			{
 
@@ -1192,7 +1437,7 @@ public:
 	//					mergeList[mergeCount] = { i, j };
 	//					mergeCount++;
 	//				}
-	//				//Combine이 아니거나 mergeCount가 최대 merge보다 클 때
+	//				//Combine???�니거나 mergeCount가 최�? merge보다 ????
 	//				else
 	//				{
 	//					float dist = sqrt(dist2);
@@ -1205,7 +1450,7 @@ public:
 	//					FVector relativeVelocity = velocityOfB - velocityOfA;
 	//					float speed = Dot(relativeVelocity, normal);
 
-	//					// 상대 속도와 충돌된 구와의 방향이 같을 때만 충격량 계산
+	//					// ?��? ?�도?� 충돌??구�???방향??같을 ?�만 충격??계산
 	//					if (speed < 0.0f)
 	//					{
 	//						float massOfA = a->GetMass();
@@ -1218,7 +1463,7 @@ public:
 	//						b->SetVelocity(velocityOfB + J / massOfB);
 	//					}
 
-	//					// 위치 보정
+	//					// ?�치 보정
 	//					float penetration = minDist - dist;
 	//					FVector correction = normal * (penetration * 0.5f);
 	//					a->SetLocation(pos1 - correction);
@@ -1229,8 +1474,8 @@ public:
 	//	}
 	//}
 
-	// 쿨룽 식으로 자기력 효과 
-	// 거리 제곱에 반비례
+	// 쿨룽 ?�으�??�기???�과 
+	// 거리 ?�곱??반비례
 	void MagneticForce()
 	{
 		for (int i = 0; i < Size; ++i)
@@ -1243,7 +1488,7 @@ public:
 
 				UPrimitive* b = primitives[j];
 
-				float k = 0.001f; //수치 안정을 위해서 임의로 조정
+				float k = 0.001f; //?�치 ?�정???�해???�의�?조정
 				float q1 = a->GetMagnetic();
 				float q2 = b->GetMagnetic();
 				float dist2 = FVector::Distance2(a->GetLocation(), b->GetLocation());
@@ -1252,7 +1497,7 @@ public:
 				float force = q1 * q2 * k / dist2;
 
 				FVector normal = a->GetLocation() - b->GetLocation();
-				//normal.Normalize(); // normalize해주면 너무 커질 수 있으니 패스
+				//normal.Normalize(); // normalize?�주�??�무 커질 ???�으???�스
 
 				totalMagneticForce += normal * force;
 			}
@@ -1262,7 +1507,7 @@ public:
 		}
 	}
 
-	////일정 반지름 이하일 때 분할하도록 유도
+	////?�정 반�?�??�하????분할?�도�??�도
 	//void Explosion()
 	//{
 	//	for (int i = 0; i < Size; ++i)
@@ -1283,7 +1528,7 @@ public:
 	//			FVector velocity = primitive->GetVelocity();
 	//			float radius = primitive->GetRadius() * 0.5f;
 
-	//			//새로운 공 생성
+	//			//?�로??�??�성
 	//			UPrimitive* newBall1 = new UBall(radius);
 	//			newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
 	//			newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
@@ -1294,7 +1539,7 @@ public:
 	//			newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
 	//			push_back(newBall2);
 
-	//			//기존 공 제거
+	//			//기존 �??�거
 	//			delete primitive;
 	//			primitives[i] = nullptr;
 	//			primitives[i] = primitives[Size - 1];
@@ -1306,7 +1551,7 @@ public:
 
 	//void Combination()
 	//{
-	//	//큰 index먼저 처리를 위해서 정렬
+	//	//??index먼�? 처리�??�해???�렬
 	//	for (int i = 0; i < mergeCount - 1; ++i)
 	//	{
 	//		for (int j = i + 1; j < mergeCount; ++j)
@@ -1314,7 +1559,7 @@ public:
 	//			int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
 	//			int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
 
-	//			if (maxI < maxJ) // 내림차순 정렬
+	//			if (maxI < maxJ) // ?�림차순 ?�렬
 	//			{
 	//				Merge temp = mergeList[i];
 	//				mergeList[i] = mergeList[j];
@@ -1328,7 +1573,7 @@ public:
 	//		int indexA = mergeList[i].indexA;
 	//		int indexB = mergeList[i].indexB;
 
-	//		//안에 있는 index 중에서도 큰 값먼저 계산하기 위함
+	//		//?�에 ?�는 index 중에?�도 ??값먼?� 계산?�기 ?�함
 	//		if (indexA < indexB)
 	//		{
 	//			int temp = indexA;
@@ -1336,7 +1581,7 @@ public:
 	//			indexB = temp;
 	//		}
 
-	//		//예외처리 
+	//		//?�외처리 
 	//		if (indexA == -1 || indexB == -1)
 	//		{
 	//			continue;
@@ -1377,7 +1622,7 @@ public:
 	//	mergeCount = 0;
 	//}
 
-	// 화면 영역 내에 있는지 체크하는 함수
+	// ?�면 ?�역 ?�에 ?�는지 체크?�는 ?�수
 	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius, 
 						float minX = -2.0f, float maxX = 2.0f, 
 						float minY = -2.0f, float maxY = 2.0f) const
@@ -1388,7 +1633,7 @@ public:
 				renderedLocation.y - renderedRadius <= maxY);
 	}
 
-	// 보이는 객체와 보이지 않는 객체를 분류하는 함수
+	// 보이??객체?� 보이지 ?�는 객체�?분류?�는 ?�수
 	void ClassifyBorder(UCamera* camera, 
 						   std::vector<int>& InSideIndices, 
 						   std::vector<int>& OutSideIndices)
@@ -1412,18 +1657,18 @@ public:
 		}
 	}
 
-	// 보이지 않는 객체들을 삭제하는 함수
+	// 보이지 ?�는 객체?�을 ??��?�는 ?�수
 	void RemoveOutsidePrimitives(const std::vector<int>& invisibleIndices)
 	{
-		// 뒤에서부터 삭제 (인덱스 변화 방지)
+		// ?�에?��?????�� (?�덱??변??방�?)
 		for (int i = invisibleIndices.size() - 1; i >= 0; i--)
 		{
 			int deleteIndex = invisibleIndices[i];
-			if (deleteIndex < 0 || deleteIndex >= Size) continue; // 안전성 체크
+			if (deleteIndex < 0 || deleteIndex >= Size) continue; // ?�전??체크
 			
 			delete primitives[deleteIndex];
 			
-			// 마지막 요소를 삭제할 위치로 이동
+			// 마�?�??�소�???��???�치�??�동
 			primitives[deleteIndex] = primitives[Size - 1];
 			primitives[Size - 1] = nullptr;
 			Size--;
@@ -1436,7 +1681,7 @@ public:
 	int Capacity = 0;
 	int Size = 0;
 
-	Merge mergeList[1024] = { -1, -1 };// 1충돌당 2개의 구가 필요하다고 하면, 1024면 넉넉할 것으로 예상, 만약 1024번을 넘기면 그냥 충돌로 처리
+	Merge mergeList[1024] = { -1, -1 };// 1충돌??2개의 구�? ?�요?�다�??�면, 1024�??�넉??것으�??�상, 만약 1024번을 ?�기�?그냥 충돌�?처리
 	int mergeCount = 0;
 };
 
@@ -1466,30 +1711,33 @@ void TickSpawnerChrono(FPrimitiveVector* PrimitiveVector)
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-	// 윈도우 클래스 이름
+{ 
+	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
+	// ������ Ŭ���� �̸� 
 	WCHAR WindowClass[] = L"JungleWindowClass";
 
-	// 윈도우 타이틀바 이름
+	// ?�도???�?��?�??�름
 	WCHAR Title[] = L"Game Tech Lab";
 
-	// 각종 메세지를 처리할 함수인 WndProc의 함수 포인터를 WindowClass 구조체에 등록
+	// 각종 메세지�?처리???�수??WndProc???�수 ?�인?��? WindowClass 구조체에 ?�록
 	WNDCLASSW wndClass = { 0, WndProc, 0, 0, 0, 0, 0, 0, 0, WindowClass };
 
-	// 윈도우 클래스 등록
+	// ?�도???�래???�록
 	RegisterClassW(&wndClass);
 
-	// 1024 * 1024 크기의 윈도우 생성
+	// 1024 * 1024 ?�기???�도???�성
 	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
 	srand((unsigned int)time(NULL));
 
-	//각종 생성/초기화 코드를 여기에 추가
+	//각종 ?�성/초기??코드�??�기??추�?
 	URenderer renderer;
 	renderer.Create(hWnd);
 	renderer.CreateShader();
 	renderer.CreateConstantBuffer();
+	   
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -1503,21 +1751,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	FPrimitiveVector PrimitiveVector;
 
-	// 플레이어 생성 및 추가
+	// ?�레?�어 ?�성 �?추�?
 	UPlayer* player = new UPlayer();
 	PrimitiveVector.push_back(player);
 
-	// 초기 ENEMY와 PREY 생성
+	// 초기 ENEMY?� PREY ?�성
 	for (int i = 0; i < 10; ++i)
 	{
 		PrimitiveVector.push_back(new UEnemy());
 		PrimitiveVector.push_back(new UPrey());
 	}
 
-	//// 구에 관한 Vertex Buffer는 한 번만 생성 후 재사용
+	//// 구에 관??Vertex Buffer????번만 ?�성 ???�사??
 	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
+	bool bTestEnabled = false;
+
+	static bool prevLButton = false; 
 
 	bool bMagnetic = false;
 
@@ -1529,7 +1780,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FVector windForce(0.0f, 0.0f, 0.0f);
 	const int targetFPS = 30;
 	const float deltaTime = 1.0 / targetFPS;
-	const double targetFrameTime = 1000.0f / targetFPS; //목표 프레임
+	const double targetFrameTime = 1000.0f / targetFPS; //목표 ?�레??
 
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
@@ -1540,16 +1791,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	LARGE_INTEGER CreateStartTime, CurrentTime;
 	double CreateInterval = rand() % 1000 + 500;
 	QueryPerformanceCounter(&CreateStartTime);
-	//// 공 하나 추가하고 시작
+	//// �??�나 추�??�고 ?�작
 	//FPrimitiveVector PrimitiveVector;
 	//UBall* ball = new UBall();
 	//PrimitiveVector.push_back(ball);
 	UCamera* cam = new UCamera();
 
-	// Dirty 플래그를 위한 벡터 - 렌더링할 객체의 인덱스만 저장
+	// Dirty ?�래그�? ?�한 벡터 - ?�더링할 객체???�덱?�만 ?�??
 	std::vector<int> InsidePrimitives;
 
 	InitSpawnerChrono();
+
+	//Create UI Texture 
+	renderer.CreateUIResources();
 
 	// Main Loop 
 	while (bIsExit == false)
@@ -1558,7 +1812,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		MSG msg;
 
-		//메시지 큐에서 msg를 꺼내오고 큐에서 제거함 
+		//Init InputManger 
+		InputManager::Input().BeginFrame();
+
+		//�޽��� ť���� msg�� �������� ť���� ������  
 		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
@@ -1578,24 +1835,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		PrimitiveVector.ProcessGameLogic();
 
-		// 2. 카메라가 플레이어를 따라가도록 업데이트
+		// 2. 카메?��? ?�레?�어�??�라가?�록 ?�데?�트
 		cam->UpdateCamera(PrimitiveVector.Player);
 
-		////collision check
-		//PrimitiveVector.CollisionCheck(elastic, bCombination);
-		// 
-		////Magnetic
-		//if (bMagnetic)
-		//{
-		//	PrimitiveVector.MagneticForce();
-		//}
-		//if (bExplosion)
-		//{
-		//	PrimitiveVector.Explosion();
-		//	bExplosion = false;
-		//}
-
-		//DesireNumberOfBalls = PrimitiveVector.size(); // 업데이트 후 공의 개수 최신화
 
 		// Frame Update
 		renderer.Prepare();
@@ -1603,19 +1845,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		cam->UpdateCamera(PrimitiveVector[0]);
 
-		// Dirty 플래그 업데이트 및 맵 보더 밖의 객체 삭제
-		std::vector<int> OutsidePrimitives; // 삭제할 객체들의 인덱스
-		
-		// FPrimitiveVector의 함수를 사용하여 보더 분류
+		// Dirty ?�래�??�데?�트 �?�?보더 밖의 객체 ??��
+		std::vector<int> OutsidePrimitives; // ??��??객체?�의 ?�덱??
+
+		// FPrimitiveVector???�수�??�용?�여 보더 분류
 		PrimitiveVector.ClassifyBorder(cam, InsidePrimitives, OutsidePrimitives);
-		
-		// 맵 보더 밖의 객체들 삭제
+
+		// �?보더 밖의 객체????��
 		PrimitiveVector.RemoveOutsidePrimitives(OutsidePrimitives);
 
-		// 보더 안의 객체들만 렌더링
+		// 보더 ?�의 객체?�만 ?�더�?
 		for (int idx : InsidePrimitives)
 		{
-			// 스크린 상에서의 좌표와 크기 계산
+			// ?�크�??�에?�의 좌표?� ?�기 계산
 			UPrimitive* prim = PrimitiveVector[idx];
 			if (prim != nullptr)
 			{
@@ -1625,9 +1867,33 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
-
-		// 렌더링 후 보이는 시야 밖에서 생성 가능할 때 생성
 		TickSpawnerChrono(&PrimitiveVector);
+
+		////////// UI TEST ////////// 
+
+		switch (ScreenState)
+		{
+		case Screen::MainMenu:
+		{
+			MenuActions action = DrawMainMenu(renderer, hWnd);
+			if (action.start)
+				ScreenState = Screen::Running;
+
+			if (action.exit)
+				bIsExit = true;
+
+			break;
+		}
+		case Screen::Running:
+
+			break;
+
+		case Screen::EndingMenu:
+			break;
+		}
+
+
+		////////// UI TEST ////////// 
 
 		// ImGui Update
 		ImGui_ImplDX11_NewFrame();
@@ -1638,7 +1904,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 		ImGui::Text("Objects: %d", PrimitiveVector.size());
 
-		// 플레이어 속성을 텍스트로 보여주기
+		// ?�레?�어 ?�성???�스?�로 보여주기
 		if (PrimitiveVector.Player)
 		{
 			EAttribute attr = PrimitiveVector.Player->GetAttribute();
@@ -1646,7 +1912,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui::Text("Player Attribute: %s", attrText);
 		}
 		ImGui::End();
-		// ▲▲▲▲▲▲▲▲▲▲
 
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -1662,27 +1927,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			elapsedTime = (endTime.QuadPart - startTime.QuadPart);
 
-
 		} while (elapsedTime < targetFrameTime);
 
+	} 
+		ImGui_ImplDX11_Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
 
-	}
+		//// ?�멸???�요??코드 
+		//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
+		
+		// WinMain?�서 ?�성??버퍼 ?�제
+		renderer.ReleaseVertexBuffer(vertexBufferSphere);
+		renderer.ReleaseConstantBuffer();
 
-	// 여기에서 ImGui 소멸
-	ImGui_ImplDX11_Shutdown();
-	ImGui_ImplWin32_Shutdown();
-	ImGui::DestroyContext();
-
-	//// 소멸에 필요한 코드 
-	//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
-
-	// WinMain에서 생성한 버퍼 해제
-	renderer.ReleaseVertexBuffer(vertexBufferSphere);
-	renderer.ReleaseConstantBuffer();
-
-	renderer.ReleaseShader();
-	renderer.Release();
-
+		renderer.ReleaseShader();
+		renderer.Release();
 
 	return 0;
 }
