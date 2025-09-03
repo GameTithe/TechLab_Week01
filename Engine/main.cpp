@@ -399,7 +399,10 @@ public:
 					USoundManager::PreyEat();
 
 					Player->AddScore(10);
-					Player->SetRadius(Player->GetRadius() + 0.005f);
+					float playerRadius = Player->GetRadius();
+					float otherRadius = other->GetRadius();
+					float newRadius = sqrt(playerRadius * playerRadius + otherRadius * otherRadius);
+					Player->SetRadius(newRadius);
 					RemoveAt(i); /** 상대 객체를 제거 */
 				}
 				else if (CheckWin(playerAttr, otherAttr)) /** 이기는 경우 */
