@@ -1188,10 +1188,10 @@ public:
 	{
 		// 무작???�성, ?�치, ?�기 ?�정
 		Attribute = (EAttribute)(rand() % 3);
-		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
 		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�직이지 ?�으므�??�도??0
 		Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
 		Mass = Radius * 10.0f;
+		ExpirationTime = std::chrono::steady_clock::now() + std::chrono::seconds(15);
 	}
 
 	// UPrimitive??규칙???�라 모든 ?�수�?구현
@@ -1218,6 +1218,7 @@ public:
 	float Radius;
 	float Mass;
 	EAttribute Attribute;
+	std::chrono::steady_clock::time_point ExpirationTime;
 };
 
 //int UBall::TotalBalls = 0;
@@ -1504,80 +1505,77 @@ public:
 					RemoveAt(i); // ���� ��ü�� ����
 				}
 
-				// else if (playerAttr == otherAttr) // ����� ��
-				// {
-				//     // �ƹ��͵� ���� ���� (��ü ���� X, ���� ���� X)
-				//     // ���⿡ '��'�ϴ� �Ҹ��� ����ϰų� ȭ�� ���� ȿ���� ������ �����ϴ�.
-				// }
+				else if (playerAttr == otherAttr) // ����� ��
+				{
+					RemoveAt(i);
+				}
 			}
 		}
 	}
+	void RespawnAllPrey()
+	{
+		// 1. 기존에 남아있는 모든 PREY를 찾아서 삭제
+		for (int i = Size - 1; i >= 0; i--)
+		{
+			// dynamic_cast를 사용해 UPrimitive가 UPrey인지 확인
+			if (dynamic_cast<UPrey*>(primitives[i]))
+			{
+				RemoveAt(i);
+			}
+		}
 
-	//void CollisionCheck(float elastic, bool bCombination)
-	//{
-	//	for (int i = 0; i < Size; ++i)
-	//	{
-	//		for (int j = i + 1; j < Size; ++j)
-	//		{
-	//			UPrimitive* a = primitives[i];
-	//			UPrimitive* b = primitives[j];
+		// 2. 새로운 PREY들을 생성
+		for (int i = 0; i < 15; ++i) // 15개의 PREY를 새로 생성
+		{
+			push_back(new UPrey());
+		}
+	}
 
-	//			float radius1 = a->GetRadius();
-	//			float radius2 = b->GetRadius();
+	// PREY의 수명과 재생성 여부를 매 프레임마다 확인하는 함수
+	void UpdatePreyLifecycle()
+	{
+		int waterPreyCount = 0;
+		int firePreyCount = 0;
+		int grassPreyCount = 0;
+		bool needsRespawn = false;
 
-	//			FVector pos1 = a->GetLocation();
-	//			FVector pos2 = b->GetLocation();
+		// 1. 수명이 다한 PREY를 삭제하고, 현재 속성별 개수를 셉니다.
+		for (int i = Size - 1; i >= 0; i--)
+		{
+			// dynamic_cast를 사용해 UPrimitive가 UPrey인지 확인
+			UPrey* prey = dynamic_cast<UPrey*>(primitives[i]);
+			if (prey) // UPrey가 맞다면
+			{
+				// 수명이 다했는지 체크
+				if (std::chrono::steady_clock::now() > prey->ExpirationTime)
+				{
+					RemoveAt(i); // 수명이 다했으면 삭제
+					continue;    // 다음 객체로
+				}
 
-	//			float dist2 = FVector::Distance2(pos2, pos1);
-	//			float minDist = radius1 + radius2;
+				// 살아남은 PREY의 속성별 개수 카운트
+				switch (prey->GetAttribute())
+				{
+				case WATER: waterPreyCount++; break;
+				case FIRE:  firePreyCount++; break;
+				case GRASS: grassPreyCount++; break;
+				}
+			}
+		}
 
-	//			// 구�? 구의 충돌처리 sqrt 비용??비싸�??�문??squre?�어?�는 ?�태?�서 거리 비교
-	//			if (dist2 < minDist * minDist)
-	//			{
+		// 2. 한 가지 속성이라도 개수가 0인지 확인합니다.
+		if (waterPreyCount == 0 || firePreyCount == 0 || grassPreyCount == 0)
+		{
+			needsRespawn = true;
+		}
 
-	//				if (bCombination && mergeCount < 1024)
-	//				{
-	//					mergeList[mergeCount] = { i, j };
-	//					mergeCount++;
-	//				}
-	//				//Combine???�니거나 mergeCount가 최�? merge보다 ????
-	//				else
-	//				{
-	//					float dist = sqrt(dist2);
-	//					FVector normal = (pos2 - pos1);
-	//					normal.Normalize();
-
-	//					FVector velocityOfA = a->GetVelocity();
-	//					FVector velocityOfB = b->GetVelocity();
-
-	//					FVector relativeVelocity = velocityOfB - velocityOfA;
-	//					float speed = Dot(relativeVelocity, normal);
-
-	//					// ?��? ?�도?� 충돌??구�???방향??같을 ?�만 충격??계산
-	//					if (speed < 0.0f)
-	//					{
-	//						float massOfA = a->GetMass();
-	//						float massOfB = b->GetMass();
-
-	//						float impulse = -(1 + elastic) * speed / (1 / massOfA + 1 / massOfB);
-	//						FVector J = normal * impulse;
-
-	//						a->SetVelocity(velocityOfA - J / massOfA);
-	//						b->SetVelocity(velocityOfB + J / massOfB);
-	//					}
-
-	//					// ?�치 보정
-	//					float penetration = minDist - dist;
-	//					FVector correction = normal * (penetration * 0.5f);
-	//					a->SetLocation(pos1 - correction);
-	//					b->SetLocation(pos2 + correction);
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-
-	// 쿨룽 ?�으�??�기???�과 
+		// 3. 조건이 만족되면 모든 PREY를 새로 생성합니다.
+		if (needsRespawn)
+		{
+			RespawnAllPrey();
+		}
+	}
+	 
 	// 거리 ?�곱??반비례
 	void MagneticForce()
 	{
@@ -1609,121 +1607,6 @@ public:
 			a->SetVelocity(a->GetVelocity() + acceleration);
 		}
 	}
-
-	////?�정 반�?�??�하????분할?�도�??�도
-	//void Explosion()
-	//{
-	//	for (int i = 0; i < Size; ++i)
-	//	{
-	//		UPrimitive* primitive = primitives[i];
-	//		if (primitive->GetRadius() > 0.05f)
-	//		{
-	//			primitive->SetDivide(true);
-	//		}
-	//	}
-
-	//	for (int i = 0; i < Size; ++i)
-	//	{
-	//		UPrimitive* primitive = primitives[i];
-	//		if (primitive->GetDivide())
-	//		{
-	//			FVector location = primitive->GetLocation();
-	//			FVector velocity = primitive->GetVelocity();
-	//			float radius = primitive->GetRadius() * 0.5f;
-
-	//			//?�로??�??�성
-	//			UPrimitive* newBall1 = new UBall(radius);
-	//			newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
-	//			newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
-	//			push_back(newBall1);
-
-	//			UPrimitive* newBall2 = new UBall(radius);
-	//			newBall2->SetLocation(FVector(location.x - radius, location.y, location.z));
-	//			newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
-	//			push_back(newBall2);
-
-	//			//기존 �??�거
-	//			delete primitive;
-	//			primitives[i] = nullptr;
-	//			primitives[i] = primitives[Size - 1];
-	//			primitives[i]->SetDivide(false);
-	//			Size--;
-	//		}
-	//	}
-	//}
-
-	//void Combination()
-	//{
-	//	//??index먼�? 처리�??�해???�렬
-	//	for (int i = 0; i < mergeCount - 1; ++i)
-	//	{
-	//		for (int j = i + 1; j < mergeCount; ++j)
-	//		{
-	//			int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
-	//			int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
-
-	//			if (maxI < maxJ) // ?�림차순 ?�렬
-	//			{
-	//				Merge temp = mergeList[i];
-	//				mergeList[i] = mergeList[j];
-	//				mergeList[j] = temp;
-	//			}
-	//		}
-
-	//	}
-	//	for (int i = 0; i < mergeCount; i++)
-	//	{
-	//		int indexA = mergeList[i].indexA;
-	//		int indexB = mergeList[i].indexB;
-
-	//		//?�에 ?�는 index 중에?�도 ??값먼?� 계산?�기 ?�함
-	//		if (indexA < indexB)
-	//		{
-	//			int temp = indexA;
-	//			indexA = indexB;
-	//			indexB = temp;
-	//		}
-
-	//		//?�외처리 
-	//		if (indexA == -1 || indexB == -1)
-	//		{
-	//			continue;
-	//		}
-	//		if (indexA >= Size || indexB >= Size)
-	//		{
-	//			continue;
-	//		}
-	//		UPrimitive* a = primitives[indexA];
-	//		UPrimitive* b = primitives[indexB];
-
-	//		FVector newLocation = (a->GetLocation() + a->GetLocation()) * 0.5f;
-	//		float radiusA = a->GetRadius();
-	//		float radiusB = b->GetRadius();
-
-
-	//		delete a;
-	//		primitives[indexA] = primitives[Size - 1];
-	//		Size--;
-
-	//		delete b;
-	//		primitives[indexB] = primitives[Size - 1];
-	//		Size--;
-
-	//		float newRadius = radiusA + radiusB;
-	//		newRadius = newRadius > 1.0f ? 1.0f : newRadius;
-	//		UBall* newBall = new UBall(newRadius);
-	//		newBall->SetLocation(newLocation);
-	//		push_back(newBall);
-	//	}
-
-	//	//clear
-	//	for (int i = 0; i < mergeCount; i++)
-	//	{
-	//		mergeList[i].indexA = -1;
-	//		mergeList[i].indexB = -1;
-	//	}
-	//	mergeCount = 0;
-	//}
 
 	// ?�면 ?�역 ?�에 ?�는지 체크?�는 ?�수
 	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius,
@@ -1777,6 +1660,45 @@ public:
 			Size--;
 		}
 	}
+	FVector FindSafeSpawnLocation(float objectRadius)
+	{
+		FVector spawnLocation;
+		bool isSafe = false;
+		int maxAttempts = 50; // 위치를 찾기 위해 최대 50번 시도
+
+		for (int attempt = 0; attempt < maxAttempts; ++attempt)
+		{
+			// 1. 화면 안쪽(-1.0 ~ 1.0)에 랜덤 위치 생성
+			spawnLocation.x = (rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+			spawnLocation.y = (rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+			spawnLocation.z = 0.0f;
+
+			isSafe = true;
+
+			// 2. 현재 존재하는 모든 객체와 겹치는지 검사
+			for (int i = 0; i < Size; ++i)
+			{
+				if (primitives[i] == nullptr) continue;
+
+				float dist2 = FVector::Distance2(spawnLocation, primitives[i]->GetLocation());
+				float minDist = objectRadius + primitives[i]->GetRadius();
+
+				if (dist2 < minDist * minDist) // 겹쳤다면
+				{
+					isSafe = false; // 안전하지 않음
+					break;          // 다음 시도로 넘어감
+				}
+			}
+
+			if (isSafe) // 안전한 위치를 찾았다면
+			{
+				return spawnLocation;
+			}
+		}
+
+		// 50번 시도해도 못 찾았다면, 그냥 마지막 위치를 반환 (게임이 멈추는 것을 방지)
+		return spawnLocation;
+	}
 
 public:
 
@@ -1826,10 +1748,25 @@ public:
 		auto now = Clock::now();
 		if (now >= nextSpawn)
 		{
-			UEnemy* Enemy = new UEnemy();
-			PrimitiveVector->push_back(Enemy);
-			auto ms = BaseSpawnIntervalMs + (std::rand() % RandomSpawnIntervalMs);
-			nextSpawn = now + std::chrono::milliseconds(ms);
+			if (PrimitiveVector->size() < 100)
+			{
+				if (rand() % 5 < 4)
+				{
+					// ENEMY는 계속 움직이므로 겹쳐도 괜찮습니다.
+					PrimitiveVector->push_back(new UEnemy());
+				}
+				else
+				{
+					// PREY는 겹치지 않도록 안전한 위치를 찾아 생성합니다.
+					UPrey* newPrey = new UPrey();
+					FVector safeLocation = PrimitiveVector->FindSafeSpawnLocation(newPrey->GetRadius());
+					newPrey->SetLocation(safeLocation);
+					PrimitiveVector->push_back(newPrey);
+				}
+			}
+
+			// 타이머를 새로 설정합니다.
+			Init();
 		}
 	}
 };
@@ -1857,6 +1794,10 @@ MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd)
 
 	return action;
 }
+
+// WinMain 함수가 시작되기 전에 이 함수를 추가하세요.
+
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -1889,10 +1830,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
-	// ★★ 수정 1: 게임 핵심 객체들을 WinMain 상단에 '선언'만 해둡니다.
 	FPrimitiveVector PrimitiveVector;
 	UCamera* cam = new UCamera();
-	UEnemySpawner spawner(200, 100);
+	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
+	UEnemySpawner preySpawner(1000, 500);  // 1.0초 ~ 1.5초마다 먹이 생성을 위한 타이머
 
 	// --- 타이머 설정 ---
 	LARGE_INTEGER frequency;
@@ -1951,10 +1892,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				// 초기 ENEMY와 PREY 생성
 				for (int i = 0; i < 30; ++i)
 				{
-					
-					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+					if (i % 2 == 0) {
+						UPrey* newPrey = new UPrey();
+						// 안전한 위치를 찾아서 설정
+						FVector safeLocation = PrimitiveVector.FindSafeSpawnLocation(newPrey->GetRadius());
+						newPrey->SetLocation(safeLocation);
+						PrimitiveVector.push_back(newPrey);
+					}
 				}
-
+				enemySpawner.Init(); // ★★ 추가: ENEMY 타이머 초기화
+				preySpawner.Init();  // ★★ 추가: PREY 타이머 초기화
 				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
 			}
 			if (action.exit)
@@ -1963,7 +1910,31 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		case Screen::Running:
 		{
-			spawner.Tick(&PrimitiveVector);
+			auto now = std::chrono::steady_clock::now(); // 현재 시간 가져오기
+
+			// ENEMY 타이머 확인 및 생성
+			if (now >= enemySpawner.nextSpawn)
+			{
+				if (PrimitiveVector.size() < 100)
+					PrimitiveVector.push_back(new UEnemy());
+				enemySpawner.Init(); // ENEMY 타이머 리셋
+			}
+
+			// PREY 타이머 확인 및 생성
+			if (now >= preySpawner.nextSpawn)
+			{
+				if (PrimitiveVector.size() < 100)
+				{
+					// 1. Prey를 만들고
+					UPrey* newPrey = new UPrey();
+					// 2. 안전한 위치를 찾아서
+					FVector safeLocation = PrimitiveVector.FindSafeSpawnLocation(newPrey->GetRadius());
+					// 3. 위치를 설정한 뒤에 게임에 추가합니다.
+					newPrey->SetLocation(safeLocation);
+					PrimitiveVector.push_back(newPrey);
+				}
+				preySpawner.Init(); // PREY 타이머 리셋
+			}
 			// --- 업데이트 로직 ---
 			for (int i = 0; i < PrimitiveVector.size(); i++)
 			{
@@ -2032,6 +2003,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					PrimitiveVector.push_back(new UEnemy());
 					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
 				}
+				enemySpawner.Init(); // ★★ 추가: ENEMY 타이머 초기화
+				preySpawner.Init();  // ★★ 추가: PREY 타이머 초기화
 				ScreenState = Screen::Running;
 			}
 			if (action.exit)
