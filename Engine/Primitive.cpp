@@ -216,7 +216,7 @@ UEnemy::UEnemy()
 {
 	Attribute = (EAttribute)(rand() % 3);
 	FVector RandomLocationOusideScreen = GetRandomLocationOusideScreen();
-	Location = RandomLocationOusideScreen * UCamera::Main->RenderScale + UCamera::Main->Location;
+	Location = RandomLocationOusideScreen / UCamera::Main->RenderScale + UCamera::Main->Location;
 
 	const float enemySpeed = 0.001f;
 	Velocity = (GetRandomNoiseVector(0.5f) - RandomLocationOusideScreen) * enemySpeed * 10;
@@ -295,7 +295,7 @@ UPrey::UPrey()
 	Attribute = EAttribute::NONE;
 	Velocity = FVector(0.0f, 0.0f, 0.0f);
 	// Radius 가져다 써도 됨
-	Location = GetRandomLocationOusideScreen() * UCamera::Main->RenderScale + UCamera::Main->Location;
+	Location = GetRandomLocationOusideScreen() / UCamera::Main->RenderScale + UCamera::Main->Location;
 	Radius = ((rand() / (float)RAND_MAX)) * 0.01f + 0.02f;
 	Mass = Radius * 10.0f;
 	ExpirationTime = std::chrono::steady_clock::now() + std::chrono::seconds(15);
