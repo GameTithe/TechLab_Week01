@@ -672,6 +672,7 @@ enum class Screen { MainMenu, Running, EndingMenu, Count};
 static Screen ScreenState = Screen::MainMenu;
 
 struct MenuActions { bool start = false; bool exit = false;  };
+
 MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 {
 	MenuActions MenuAction{};
@@ -734,6 +735,9 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	return MenuAction; 
 }
 
+MenuActions DrawRunningMenu(URenderer& renderer, HWND hWnd)
+{
+}
 class UPrimitive
 {
 public:
@@ -1433,9 +1437,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			
 			if (action.exit)
 				bIsExit = true;
+
 			break;
 		}
 		case Screen::Running:
+
 			break;
 
 		case Screen::EndingMenu:
