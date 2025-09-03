@@ -142,6 +142,7 @@
     <ClInclude Include="ImGui\imstb_textedit.h" />
     <ClInclude Include="ImGui\imstb_truetype.h" />
     <ClInclude Include="InputManager.h" />
+    <ClInclude Include="PlayerData.h" />
     <ClInclude Include="Sphere.h" />
     <ClInclude Include="UIInfo.h" />
   </ItemGroup>

@@ -4,8 +4,7 @@
 #include <vector>
 #include <chrono>
 
-
-#include <vector>
+#include <unordered_map>
 
 // D3D libraries
 #pragma comment(lib, "user32")
@@ -36,6 +35,8 @@ HWND hWnd = nullptr;
 
 //Manager
 #include "InputManager.h"
+
+#include "PlayerData.h"
 
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -186,16 +187,14 @@ struct FVector
 		}
 	}
 };
-
-// ?ì„±???˜í??´ê¸° ?„í•œ ?´ê±°??enum) ?•ì˜
+ 
 enum EAttribute
 {
 	WATER, // ë¬?
 	FIRE,  // ë¶?
 	GRASS  // ?€
 };
-
-// ?ì„± ?ì„±??ì²´í¬?˜ëŠ” ?„ìš°ë¯??¨ìˆ˜
+ 
 bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
 {
 	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
@@ -212,6 +211,8 @@ inline float Dot(const FVector& v1, const FVector& v2)
 //sphere
 #include "Sphere.h" 
 
+class UPlayer;
+
 class URenderer
 {
 public:
@@ -220,12 +221,12 @@ public:
 	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU ëª…ë ¹ ?¤í–‰???´ë‹¹?˜ëŠ” Context
 	IDXGISwapChain* SwapChain = nullptr;				// ?„ë ˆ??ë²„í„°ë¥?êµì²´?˜ëŠ” ???¬ìš©?˜ëŠ” Swap Chain
 
-	// ?Œë”ë§ì— ?„ìš”??ë¦¬ì†Œ??ë°??íƒœë¥?ê´€ë¦¬í•˜ê¸??„í•œ ë³€?˜ë“¤ 
-	ID3D11Texture2D* FrameBuffer = nullptr;					// ?”ë©´ ì¶œë ¥??
+ 	ID3D11Texture2D* FrameBuffer = nullptr;					// ?”ë©´ ì¶œë ¥??
 	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// ?ìŠ¤ì²˜ë? ?Œí„° ?€ê²Ÿìœ¼ë¡??¬ìš©?˜ëŠ” ë·?
 	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer ?íƒœ (ì»¬ë§, ì±„ìš°ê¸?ëª¨ë“œ ?? 
 	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (?°ì´?”ì— ?„ë‹¬???°ì´???€?¥ìš©)
 
+	ID3D11Buffer* ConstantUnitBuffer = nullptr;
 
 	//UI
 	ID3D11VertexShader* UIVS = nullptr;
@@ -233,17 +234,26 @@ public:
 	ID3D11InputLayout* UIInputLayout = nullptr;
  	ID3D11Buffer* UIVertexBuffer = nullptr;  // µ¿Àû VB
 	ID3D11Buffer* UIPerFrameCB = nullptr;
+
 	ID3D11ShaderResourceView* UITitleSRV = nullptr;
 	ID3D11ShaderResourceView* UIStartSRV = nullptr;
 	ID3D11ShaderResourceView* UIExitSRV = nullptr; 
+	ID3D11ShaderResourceView* UIMenuSRV = nullptr; 
+	ID3D11ShaderResourceView* UIGameOverSRV = nullptr; 
+	ID3D11ShaderResourceView* UINameSRV = nullptr; 
 
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
 	FLOAT ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// ·»´õ¸µ ¿µ¿ªÀ» Á¤ÀÇÇÏ´Â ºäÆ÷Æ® Á¤º¸ 
-	 
+	
+	// Unit Texture 
+	ID3D11ShaderResourceView* WaterBallNoiseSRV = nullptr;
+	ID3D11SamplerState* UnitNoiseSampler = nullptr; 
 
+
+	
 public:
 
 	// ?Œë”??ì´ˆê¸°???¨ìˆ˜
@@ -383,6 +393,7 @@ public:
 		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 8,  D3D11_INPUT_PER_VERTEX_DATA,0},
 		{"COLOR",   0,DXGI_FORMAT_R32G32B32A32_FLOAT, 0,16,  D3D11_INPUT_PER_VERTEX_DATA,0},
 		};
+
 		Device->CreateInputLayout(uiInputLayout, ARRAYSIZE(uiInputLayout),
 			vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &UIInputLayout);
 
@@ -419,12 +430,17 @@ public:
 		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		Device->CreateBlendState(&blendDesc, &UIAlphaBlend);
-		 
+	
 		LoadTextureWIC(L"ui_title.png", &UITitleSRV);
 		LoadTextureWIC(L"ui_start.png", &UIStartSRV);
 		LoadTextureWIC(L"ui_exit.png", &UIExitSRV);
+		LoadTextureWIC(L"ui_gameover.png", &UIGameOverSRV);
+		LoadTextureWIC(L"ui_name.png", &UINameSRV);
+		LoadTextureWIC(L"ui_menu.png", &UIMenuSRV);
 		 
 	}
+ 
+
 
 	void ReleaseUIResource()
 	{ 
@@ -433,6 +449,9 @@ public:
 		if (UITitleSRV) { UITitleSRV->Release();   UITitleSRV = nullptr; }
 		if (UIStartSRV) { UIStartSRV->Release();   UIStartSRV = nullptr; }
 		if (UIExitSRV) { UIExitSRV->Release();   UIExitSRV = nullptr; }
+		if (UIGameOverSRV) { UIGameOverSRV->Release();   UIGameOverSRV = nullptr; }
+		if (UINameSRV) { UINameSRV->Release();   UINameSRV = nullptr; }
+
 		if (UIPerFrameCB) { UIPerFrameCB->Release(); UIPerFrameCB = nullptr; }
 		if (UIVertexBuffer) { UIVertexBuffer->Release(); UIVertexBuffer = nullptr; }
 		if (UIInputLayout) { UIInputLayout->Release(); UIInputLayout = nullptr; }
@@ -505,9 +524,7 @@ public:
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
 			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
-
-		// vertesxShader???…ë ¥ ?œê·¸?ˆì²˜?€ ?¸í™˜?˜ëŠ”ì§€ ?•ì¸?´ì•¼?˜ë‹ˆê¹?
-		// layout?ì„œ vertexShaderCSOë¥??„ìš”ë¡œí•¨ 
+		 
 		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
@@ -515,6 +532,53 @@ public:
 		vertexShaderCSO->Release();
 		pixelShaderCSO->Release();
 	}
+
+	void CreateUnitShader()
+	{
+		ID3DBlob* vertexShaderCSO;
+		ID3DBlob* pixelShaderCSO;
+		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
+
+		Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), nullptr, &SimpleVertexShader);
+
+		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
+		Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(), pixelShaderCSO->GetBufferSize(), nullptr, &SimplePixelShader);
+
+		D3D11_INPUT_ELEMENT_DESC layout[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+			{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 12,  D3D11_INPUT_PER_VERTEX_DATA,0}, 
+			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		};
+
+		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
+
+		Stride = sizeof(FVertexSimple);
+
+		vertexShaderCSO->Release();
+		pixelShaderCSO->Release();
+       
+		// Sampler
+		D3D11_SAMPLER_DESC samplerDesc{};
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.AddressU = samplerDesc.AddressV = samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		Device->CreateSamplerState(&samplerDesc, &UnitNoiseSampler);
+
+
+		////// 6) ºí·»µå (ÀÏ¹İ ¾ËÆÄ)
+		//D3D11_BLEND_DESC blendDesc{}; blendDesc.RenderTarget[0].BlendEnable = TRUE;
+		//blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		//blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		//blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		//blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		//blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+		//blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		//blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		//Device->CreateBlendState(&blendDesc, &UIAlphaBlend);
+
+		LoadTextureWIC(L"noise.png", &WaterBallNoiseSRV); 
+	}
+
 
 	void ReleaseShader()
 	{
@@ -564,6 +628,28 @@ public:
 		}
 	}
 
+	void PrepareUnitShader()
+	{
+		DeviceContext->IASetInputLayout(SimpleInputLayout);
+		DeviceContext->VSSetShader(SimpleVertexShader, nullptr, 0);
+		DeviceContext->PSSetShader(SimplePixelShader, nullptr, 0);
+		  
+		if (ConstantBuffer)
+		{
+			DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
+			DeviceContext->PSSetConstantBuffers(0, 1, &ConstantBuffer);
+		}
+		if (ConstantUnitBuffer)
+		{
+			DeviceContext->VSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
+			DeviceContext->PSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
+		}
+		
+		//TODO 3°³
+		DeviceContext->PSSetShaderResources(0, 1, &WaterBallNoiseSRV);
+		DeviceContext->PSSetSamplers(0, 1, &UnitNoiseSampler);
+		 
+	}
 	void PrepareShaderUI(ID3D11ShaderResourceView* UISRV)
 	{ 
 		DeviceContext->IASetInputLayout(UIInputLayout);
@@ -622,20 +708,23 @@ public:
 	{
 		FVector Offset;
 		float Scale;
-	};
-
-
+	}; 
 	void CreateConstantBuffer()
-	{
-		// 16byte ?¨ìœ„ë¡??•ì¶•?´ì•¼??
+	{ 
 		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16ë°°ìˆ˜ ?•ë ¬ 
+		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // align 16byte 
 		constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-
+		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; 
 		Device->CreateBuffer(&constantBufferDesc, nullptr, &ConstantBuffer);
 
+
+		D3D11_BUFFER_DESC constantUnitBufferDesc = {};
+		constantUnitBufferDesc.ByteWidth = (sizeof(FPlayerInfo) + 0xf) & 0xfffffff0; // align 16byte 
+		constantUnitBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		constantUnitBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		constantUnitBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; 
+		Device->CreateBuffer(&constantUnitBufferDesc, nullptr, &ConstantUnitBuffer);
 	}
 
 	void ReleaseConstantBuffer()
@@ -647,7 +736,22 @@ public:
 		}
 	}
 
-	void UpdateConstant(FVector Offset, float Scale)
+	void UpdateConstant( FVector Offset, float Scale)
+	{
+		if (ConstantBuffer)
+		{
+			D3D11_MAPPED_SUBRESOURCE constantBufferMSR;
+
+			DeviceContext->Map(ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantBufferMSR);
+			FConstant* constants = (FConstant*)constantBufferMSR.pData;
+			constants->Offset = Offset;
+			constants->Scale = Scale;
+
+			DeviceContext->Unmap(ConstantBuffer, 0);
+		} 
+	}
+
+	void UpdateUnitConstant(int attribute,float time, FVector Offset, float Scale)
 	{
 		if (ConstantBuffer)
 		{
@@ -660,9 +764,26 @@ public:
 
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
-	}
 
-	void UpdateConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])
+		if (ConstantUnitBuffer)
+		{
+			D3D11_MAPPED_SUBRESOURCE constantUnitBufferMSR;
+			
+			DeviceContext->Map(ConstantUnitBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantUnitBufferMSR);
+			FPlayerInfo* constants = (FPlayerInfo*)constantUnitBufferMSR.pData;
+			 
+			//constants->att = player;
+			//constants->iTime = time;
+			float resolution[2] = { winWidth, winHeight };
+			constants->att = attribute;
+			memcpy(constants->resolution, resolution, sizeof(float) * 2);
+			constants->iTime = time;
+			 
+			DeviceContext->Unmap(ConstantUnitBuffer, 0);
+
+		}
+	}
+	void UpdateUIConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])
 	{  
 		if (UIPerFrameCB) 
 		{
@@ -698,7 +819,7 @@ public:
 enum class Screen { MainMenu, Running, EndingMenu, Count};
 static Screen ScreenState = Screen::MainMenu;
 
-struct MenuActions { bool start = false; bool exit = false;  };
+struct MenuActions { bool menu = false; bool start = false; bool running = false; bool gameover;  bool exit = false; };
 
 MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 {
@@ -722,7 +843,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	// Title UI   
 	float titleRatio[2] = { 0.5f, 0.3f };
 	float targetSize[2] = { 500, 500 };
-	renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
+	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
 	renderer.PrepareShaderUI(renderer.UITitleSRV);
 
 	// Start UI 
@@ -733,7 +854,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 
 	UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
 	bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
-	renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
+	renderer.UpdateUIConstant(winSize, targetSize, startHoverTest, startRatio);
 	renderer.PrepareShaderUI(renderer.UIStartSRV);
 
 
@@ -745,7 +866,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 
 	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
 	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
-	renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
 
 	// ====== Å¬¸¯ Ã³¸® ====== 
@@ -755,13 +876,101 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	}
 	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
 	{
-		MenuAction.exit = true;
+		//MenuAction.exit = true;
+		MenuAction.gameover = true;
 		//NewController->bIsEnabled = true;
 	}
 
 	return MenuAction; 
+} 
+ 
+MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd)
+{
+	MenuActions MenuAction;
+	MenuAction.gameover = true;
+
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	float winW = (float)(rect.right - rect.left);
+	float winH = (float)(rect.bottom - rect.top);
+	float winSize[2] = { winW, winH };
+
+	POINT pt;
+	GetCursorPos(&pt);              // ½ºÅ©¸° ÁÂÇ¥°è
+	ScreenToClient(hWnd, &pt);      // À©µµ¿ì Å¬¶óÀÌ¾ğÆ® ÁÂÇ¥·Î º¯È¯
+	int mouseX = pt.x;
+	int mouseY = pt.y;
+	float mousePos[2] = { mouseX, mouseY };
+
+	// Name UI 
+	float nameRatio[2] = { 0.5f, 0.5f };
+	float targetSize[2] = { winW, winH };
+
+	renderer.UpdateUIConstant(winSize, targetSize, false, nameRatio);
+	renderer.PrepareShaderUI(renderer.UINameSRV);
+
+	// Title UI   
+	float titleRatio[2] = { 0.5f, 0.3f };
+	targetSize[0] = 500; targetSize[1] = 500;
+	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
+	renderer.PrepareShaderUI(renderer.UIGameOverSRV);
+
+	// Start UI 
+	float startRatio[2] = { 0.5f, 0.7f };
+	float startUIOffset[2] = { 50.0f, 100.f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1] };
+
+	UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
+	bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, startHoverTest, startRatio);
+	renderer.PrepareShaderUI(renderer.UIStartSRV);
+	
+	// Menu UI 
+	float menuRatio[2] = { 0.5f, 0.8f };
+	float menuUIOffset[2] = { 50.0f, 100.0f };
+	targetSize[0] = 200; targetSize[1] = 150;
+	hoveringSize[0] = targetSize[0] - menuUIOffset[0]; hoveringSize[1] = targetSize[1] - menuUIOffset[1];
+
+	UIReact reactMenu = MakeRect(winSize, hoveringSize, menuRatio);
+	bool menuHoverTest = CheckMouseOnUI(reactMenu, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, menuHoverTest, menuRatio);
+	renderer.PrepareShaderUI(renderer.UIMenuSRV);
+
+	// Exit UI 
+	float exitRatio[2] = { 0.9f, 0.95f };
+	float exitUIOffset[2] = { 50.0f, 100.0f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+
+	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+	MenuActions action; 
+	// ====== Å¬¸¯ Ã³¸® ====== 
+	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
+	{
+		action.start = true;
+		MenuAction = action;
+	}
+	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
+	{  
+		action.exit = true;
+		MenuAction = action;
+		//NewController->bIsEnabled = true;
+	}
+	if (InputManager::Input().IsClicked(MouseButton::Left) && menuHoverTest)
+	{ 
+		action.menu = true;  
+		MenuAction = action; 
+	}
+
+	return MenuAction;
 }
-  
+
+
 class UPrimitive
 {
 public:
@@ -1007,6 +1216,8 @@ public:
 		Location = FVector(0.0f, 0.0f, 0.0f); // ?”ë©´ ì¤‘ì•™?ì„œ ?œì‘
 		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?ë„??ë§ˆìš°?¤ë? ?°ë¥´ë¯€ë¡?0?¼ë¡œ ?œì‘
 		Score = 0;
+		 
+		PlayerInfo.att = Attribute; 
 	}
 
 	// UPrimitive??ê·œì¹™(?œìˆ˜ ê°€???¨ìˆ˜)???°ë¼ ëª¨ë“  ?¨ìˆ˜ë¥?êµ¬í˜„
@@ -1063,6 +1274,7 @@ public:
 	float Mass;
 	int Score;
 	EAttribute Attribute;
+	FPlayerInfo PlayerInfo;
 };
 
 class UEnemy : public UPrimitive
@@ -1731,11 +1943,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
 
 	srand((unsigned int)time(NULL));
-
-	//ê°ì¢… ?ì„±/ì´ˆê¸°??ì½”ë“œë¥??¬ê¸°??ì¶”ê?
+	 
 	URenderer renderer;
 	renderer.Create(hWnd);
-	renderer.CreateShader();
+	///renderer.CreateShader();
+	renderer.CreateUnitShader();
 	renderer.CreateConstantBuffer();
 	   
 
@@ -1750,19 +1962,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	FPrimitiveVector PrimitiveVector;
-
-	// ?Œë ˆ?´ì–´ ?ì„± ë°?ì¶”ê?
+	 
 	UPlayer* player = new UPlayer();
 	PrimitiveVector.push_back(player);
-
-	// ì´ˆê¸° ENEMY?€ PREY ?ì„±
+	 
 	for (int i = 0; i < 10; ++i)
 	{
 		PrimitiveVector.push_back(new UEnemy());
 		PrimitiveVector.push_back(new UPrey());
 	}
-
-	//// êµ¬ì— ê´€??Vertex Buffer????ë²ˆë§Œ ?ì„± ???¬ì‚¬??
+	 
 	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
@@ -1780,7 +1989,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FVector windForce(0.0f, 0.0f, 0.0f);
 	const int targetFPS = 30;
 	const float deltaTime = 1.0 / targetFPS;
-	const double targetFrameTime = 1000.0f / targetFPS; //ëª©í‘œ ?„ë ˆ??
+	const double targetFrameTime = 1000.0f / targetFPS;  
 
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
@@ -1790,23 +1999,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	LARGE_INTEGER CreateStartTime, CurrentTime;
 	double CreateInterval = rand() % 1000 + 500;
-	QueryPerformanceCounter(&CreateStartTime);
-	//// ê³??˜ë‚˜ ì¶”ê??˜ê³  ?œì‘
+	QueryPerformanceCounter(&CreateStartTime); 
 	//FPrimitiveVector PrimitiveVector;
 	//UBall* ball = new UBall();
 	//PrimitiveVector.push_back(ball);
 	UCamera* cam = new UCamera();
-
-	// Dirty ?Œë˜ê·¸ë? ?„í•œ ë²¡í„° - ?Œë”ë§í•  ê°ì²´???¸ë±?¤ë§Œ ?€??
+	 
 	std::vector<int> InsidePrimitives;
 
 	InitSpawnerChrono();
 
 	//Create UI Texture 
 	renderer.CreateUIResources();
-
-	//Create UI Texture 
-	renderer.CreateUIResources();
+	 
 
 	// Main Loop 
 	while (bIsExit == false)
@@ -1837,43 +2042,44 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector[i]->Movement();
 		}
 		PrimitiveVector.ProcessGameLogic();
-
-		// 2. ì¹´ë©”?¼ê? ?Œë ˆ?´ì–´ë¥??°ë¼ê°€?„ë¡ ?…ë°?´íŠ¸
+		 
 		cam->UpdateCamera(PrimitiveVector.Player);
-
-
+		 
 		// Frame Update
 		renderer.Prepare();
-		renderer.PrepareShader();
+		renderer.PrepareUnitShader();
+		//renderer.PrepareShader();
 
 		cam->UpdateCamera(PrimitiveVector[0]);
-
-		// Dirty ?Œë˜ê·??…ë°?´íŠ¸ ë°?ë§?ë³´ë” ë°–ì˜ ê°ì²´ ?? œ
-		std::vector<int> OutsidePrimitives; // ?? œ??ê°ì²´?¤ì˜ ?¸ë±??
-
-		// FPrimitiveVector???¨ìˆ˜ë¥??¬ìš©?˜ì—¬ ë³´ë” ë¶„ë¥˜
+		 
+		std::vector<int> OutsidePrimitives;  
+		 
 		PrimitiveVector.ClassifyBorder(cam, InsidePrimitives, OutsidePrimitives);
-
-		// ë§?ë³´ë” ë°–ì˜ ê°ì²´???? œ
+		 
 		PrimitiveVector.RemoveOutsidePrimitives(OutsidePrimitives);
+		 
+		//Test Time
+		LARGE_INTEGER now;
+		QueryPerformanceCounter(&now);
+		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
+		float iTime = static_cast<float>(elapsed);
 
-		// ë³´ë” ?ˆì˜ ê°ì²´?¤ë§Œ ?Œë”ë§?
+		//
 		for (int idx : InsidePrimitives)
-		{
-			// ?¤í¬ë¦??ì—?œì˜ ì¢Œí‘œ?€ ?¬ê¸° ê³„ì‚°
+		{ 
 			UPrimitive* prim = PrimitiveVector[idx];
 			if (prim != nullptr)
 			{
 				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
 				float renderedRadius = cam->GetCameraSpaceRadius(prim);
-				renderer.UpdateConstant(renderedLocation, renderedRadius);
+				//renderer.UpdateConstant(renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(player->Attribute, iTime, renderedLocation, renderedRadius);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
 		TickSpawnerChrono(&PrimitiveVector);
 
-		////////// UI TEST ////////// 
-
+		////////// UI TEST //////////  
 		switch (ScreenState)
 		{
 		case Screen::MainMenu:
@@ -1882,42 +2088,59 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (action.start)
 				ScreenState = Screen::Running;
 
+			if (action.gameover)
+				ScreenState = Screen::EndingMenu;
+
 			if (action.exit)
 				bIsExit = true;
 
 			break;
 		}
-		case Screen::Running:
-
+		case Screen::Running:  
 			break;
 
 		case Screen::EndingMenu:
-			break;
+			MenuActions action = DrawEndingMenu(renderer, hWnd);
+			if (action.start)
+				ScreenState = Screen::Running;
+			 
+			if (action.exit)
+				bIsExit = true;
+
+			if (action.menu)
+				ScreenState = Screen::MainMenu;
+
+			break; 
 		}
 
 
-		////////// UI TEST ////////// 
-
+		////////// UI TEST //////////  
 		// ImGui Update
-		ImGui_ImplDX11_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-
-		ImGui::Begin("Game Info");
-		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-		ImGui::Text("Objects: %d", PrimitiveVector.size());
-
-		// ?Œë ˆ?´ì–´ ?ì„±???ìŠ¤?¸ë¡œ ë³´ì—¬ì£¼ê¸°
-		if (PrimitiveVector.Player)
+		
+		if (ScreenState == Screen::Running)
 		{
-			EAttribute attr = PrimitiveVector.Player->GetAttribute();
-			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-			ImGui::Text("Player Attribute: %s", attrText);
-		}
-		ImGui::End();
+			ImGui_ImplDX11_NewFrame();
+			ImGui_ImplWin32_NewFrame();
+			ImGui::NewFrame();
 
-		ImGui::Render();
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+			ImGui::Begin("Game Info");
+
+
+			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+			ImGui::Text("Objects: %d", PrimitiveVector.size());
+
+			if (PrimitiveVector.Player)
+			{
+				EAttribute attr = PrimitiveVector.Player->GetAttribute();
+				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+				ImGui::Text("Player Attribute: %s", attrText);
+			}
+			ImGui::End();
+
+			ImGui::Render();
+			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+		}
+
 
 		// Swap Buffer
 		renderer.SwapBuffer();
@@ -1936,11 +2159,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ImGui_ImplDX11_Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
-
-		//// ?Œë©¸???„ìš”??ì½”ë“œ 
-		//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
-		
-		// WinMain?ì„œ ?ì„±??ë²„í¼ ?´ì œ
+		 
 		renderer.ReleaseVertexBuffer(vertexBufferSphere);
 		renderer.ReleaseConstantBuffer();
 
