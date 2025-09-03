@@ -23,6 +23,9 @@
 #pragma comment(lib, "windowscodecs.lib") 
 #include "UIInfo.h"
 
+//Manager
+#include "InputManager.h"
+
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -39,20 +42,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		return true;
 	}
 
+	InputManager::Input().ProcessMessage(hWnd, message, wParam, lParam);
+
+
 	switch (message)
 	{
 	case WM_DESTROY:
 		// signal the the app should quit
 		PostQuitMessage(0);
 		break;
-
-	case WM_LBUTTONDOWN:
-		MouseClicked = true;
-		break;
-
-	case WM_LBUTTONUP:
-		MouseClicked = false;
-		break;
+		 
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
@@ -669,6 +668,11 @@ public:
 	}
 };
 
+enum class Screen { MainMenu, Running, EndingMenu, Count};
+static Screen ScreenState = Screen::MainMenu;
+
+struct MenuActions { bool start = false; bool exit = false;  };
+
 
 class UPrimitive
 {
@@ -1270,6 +1274,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
+	bool bTestEnabled = false;
+
 	static bool prevLButton = false; 
 
 	bool bMagnetic = false;
@@ -1306,6 +1312,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		MSG msg;
 
+		//Init InputManger 
+		InputManager::Input().BeginFrame(); 
+
 		//메시지 큐에서 msg를 꺼내오고 큐에서 제거함 
 		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
 		{
@@ -1317,7 +1326,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				bIsExit = true;
 				break;
 			}
-		}
+		} 
 
 		//basic movement
 		for (int i = 0; i < PrimitiveVector.size(); i++)
@@ -1368,55 +1377,52 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		int mouseY = pt.y;
 		float mousePos[2] = { mouseX, mouseY };
 
-		// NewController isEnabled
+		// NewController bIsEnabled
 		 
 		// Title UI 
-		float titleRatio[2] = { 0.5f, 0.3f };
-		float targetSize[2] = { 500, 500 }; 
-		renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
-		renderer.PrepareShaderUI(renderer.UITitleSRV);
-
-		// Start UI
-		float startRatio[2] = { 0.5f, 0.7f };
-		float startUIOffset[2] = { 50.0f, 100.f};
-		targetSize[0] = 200; targetSize[1] = 200;
-		float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1]};
-
-		UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
-		bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
-		renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
-		renderer.PrepareShaderUI(renderer.UIStartSRV);
-
-
-		// Exit UI 
-		float exitRatio[2] = { 0.5f, 0.8f };
-		float exitUIOffset[2] = { 50.0f, 100.0f }; 
-		targetSize[0] = 200; targetSize[1] = 200;
-		hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
-
-		UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
-		bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY); 
-		renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
-		renderer.PrepareShaderUI(renderer.UIExitSRV); 
-
-		// ====== 클릭 처리 ======
-		ImGuiIO& io = ImGui::GetIO();
-		bool curLButton = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-		bool clicked = curLButton && !prevLButton;
-
-		// ImGui가 마우스를 잡고 있으면(슬라이더 드래그 등) 우리 UI 클릭은 무시
-		if (!io.WantCaptureMouse && clicked)
+		if (!bTestEnabled)
 		{
-			if (exitHoverTest) { 
+			float titleRatio[2] = { 0.5f, 0.3f };
+			float targetSize[2] = { 500, 500 };
+			renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
+			renderer.PrepareShaderUI(renderer.UITitleSRV);
+
+			// Start UI 
+			float startRatio[2] = { 0.5f, 0.7f };
+			float startUIOffset[2] = { 50.0f, 100.f };
+			targetSize[0] = 200; targetSize[1] = 200;
+			float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1] };
+
+			UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
+			bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
+			renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
+			renderer.PrepareShaderUI(renderer.UIStartSRV);
+
+
+			// Exit UI 
+			float exitRatio[2] = { 0.5f, 0.8f };
+			float exitUIOffset[2] = { 50.0f, 100.0f };
+			targetSize[0] = 200; targetSize[1] = 200;
+			hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+
+			UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+			bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
+			renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
+			renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+			// ====== 클릭 처리 ====== 
+			if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
+			{
 				bIsExit = true;
-				// 또는 bIsExit = true; 로 루프 탈출하고 마무리 처리도 가능
 			}
-			if (startHoverTest) {
-				//ui 지우기  
+			if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
+			{
+				bTestEnabled = true;
+				//NewController->bIsEnabled = true;
+
 			}
 		}
-
-		prevLButton = curLButton;
+		 
 
 		////////// UI TEST //////////
 
