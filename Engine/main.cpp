@@ -796,8 +796,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 		}
 		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
-
-
+		 
 
 		////////// UI TEST //////////  
 		switch (ScreenState)
@@ -849,7 +848,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
 
-			menuUI.DrawRunningMenu(renderer, hWnd);
+			MenuActions action = menuUI.DrawRunningMenu(renderer, hWnd);
 			auto now = std::chrono::steady_clock::now(); // 현재 시간 가져오기
 
 			// ENEMY 타이머 확인 및 생성
@@ -916,6 +915,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
 
+			if (action.menu)
+			{
+ 				ScreenState = Screen::MainMenu;
+			}
+			if (action.exit)
+				bIsExit = true;
 			break;
 		}
 		case Screen::EndingMenu:

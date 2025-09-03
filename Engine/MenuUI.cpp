@@ -159,25 +159,13 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	int mouseX = pt.x;
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
-
-	// Menu UI
-	float menuRatio[2] = { 0.9f, 0.8f };
-	float menuUIOffset[2] = { 50.0f, 100.0f };
-	float targetSize[2] = { 200, 150 };
-
-	float hoveringSize[2] = { targetSize[0] - menuUIOffset[0], targetSize[1] - menuUIOffset[1] };
-	UIReact reactMenu = MakeRect(winSize, hoveringSize, menuRatio);
-
-	bool menuHoverTest = CheckMouseOnUI(reactMenu, mouseX, mouseY);
-	renderer.UpdateUIConstant(winSize, targetSize, menuHoverTest, menuRatio);
-	renderer.PrepareShaderUI(renderer.UIMenuSRV);
-
+	 
 	// Exit UI
 	float exitRatio[2] = { 0.9f, 0.95f };
 	float exitUIOffset[2] = { 50.0f, 100.0f }; 
 
-	targetSize[0] = 200; targetSize[1] = 200;
-	hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+	float targetSize[2] = { 200, 200 };
+	float hoveringSize[2] = { targetSize[0] - exitUIOffset[0],  targetSize[1] - exitUIOffset[1] };
 	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
 	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
 	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
@@ -187,14 +175,7 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
 	{
 		action.exit = true;
-		MenuAction = action;
-		//NewController->bIsEnabled = true;
-	}
-	if (InputManager::Input().IsClicked(MouseButton::Left) && menuHoverTest)
-	{
-		action.menu = true;
-		MenuAction = action;
-	}
-
+		MenuAction = action; 
+	} 
 	return MenuAction;
 }
