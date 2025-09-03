@@ -2,13 +2,6 @@
 
 static const UINT UIVBMaxVerts = 1024;
 
-struct UIVertex
-{
-	float x, y;
-	float u, v;
-	float r, g, b, a;
-
-};
 struct UIInfo
 {
 	float Win[2];
