@@ -29,6 +29,7 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam
 const int winWidth = 1024;
 const int winHeight = 1024;
 
+static bool MouseClicked = false; 
 
 // 각종 메세지를 처리할 함수
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -43,6 +44,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 		// signal the the app should quit
 		PostQuitMessage(0);
+		break;
+
+	case WM_LBUTTONDOWN:
+		MouseClicked = true;
+		break;
+
+	case WM_LBUTTONUP:
+		MouseClicked = false;
 		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1261,10 +1270,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	bool bIsExit = false;
+	static bool prevLButton = false; 
 
-	bool bGravity = false;
-	bool bAirForce = false;
-	bool bWindForce = false;
 	bool bMagnetic = false;
 
 	bool bExplosion = false;
@@ -1361,25 +1368,55 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		int mouseY = pt.y;
 		float mousePos[2] = { mouseX, mouseY };
 
-
+		// NewController isEnabled
+		 
+		// Title UI 
 		float titleRatio[2] = { 0.5f, 0.3f };
-		float targetSize[2] = { 500, 500 };
-
+		float targetSize[2] = { 500, 500 }; 
 		renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
 		renderer.PrepareShaderUI(renderer.UITitleSRV);
 
+		// Start UI
 		float startRatio[2] = { 0.5f, 0.7f };
+		float startUIOffset[2] = { 50.0f, 100.f};
 		targetSize[0] = 200; targetSize[1] = 200;
-		UIReact rStart = MakeRect(winSize, targetSize, startRatio);
-		bool hoverStart = CheckMouseOnUI(rStart, mouseX, mouseY);
+		float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1]};
 
-
-		renderer.UpdateConstant(winSize, targetSize, hoverStart, startRatio);
+		UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
+		bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
+		renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
 		renderer.PrepareShaderUI(renderer.UIStartSRV);
-		  
+
+
+		// Exit UI 
 		float exitRatio[2] = { 0.5f, 0.8f };
-		renderer.UpdateConstant(winSize, targetSize, true, exitRatio);
-		renderer.PrepareShaderUI(renderer.UIExitSRV);
+		float exitUIOffset[2] = { 50.0f, 100.0f }; 
+		targetSize[0] = 200; targetSize[1] = 200;
+		hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+
+		UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+		bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY); 
+		renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
+		renderer.PrepareShaderUI(renderer.UIExitSRV); 
+
+		// ====== 클릭 처리 ======
+		ImGuiIO& io = ImGui::GetIO();
+		bool curLButton = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+		bool clicked = curLButton && !prevLButton;
+
+		// ImGui가 마우스를 잡고 있으면(슬라이더 드래그 등) 우리 UI 클릭은 무시
+		if (!io.WantCaptureMouse && clicked)
+		{
+			if (exitHoverTest) { 
+				bIsExit = true;
+				// 또는 bIsExit = true; 로 루프 탈출하고 마무리 처리도 가능
+			}
+			if (startHoverTest) {
+				//ui 지우기  
+			}
+		}
+
+		prevLButton = curLButton;
 
 		////////// UI TEST //////////
 
@@ -1391,41 +1428,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		// ImGui UI 컨트롤 추가는 ImGui::NewFrame()과 ImGui::Render() 사이에
 		ImGui::Begin("Jungle Property Window");
 		ImGui::Text("Hello Jungle World!");
-		 
-
-		ImGui::PushItemWidth(100);
-		ImGui::InputInt("##BallCountInput", &DesireNumberOfBalls, 1);
-		ImGui::SameLine();
-
-		DesireNumberOfBalls = DesireNumberOfBalls < 1 ? 1 : DesireNumberOfBalls;
-
-		while (PrimitiveVector.size() < DesireNumberOfBalls)
-		{
-			PrimitiveVector.push_back(new UBall());
-		}
-		while (PrimitiveVector.size() > DesireNumberOfBalls)
-		{
-			PrimitiveVector.pop_random();
-		}
-
-		ImGui::SameLine();
-		ImGui::Text("Number of Balls");
-
-
-		ImGui::SliderFloat("##ElasticitySlider", &elastic, 0.0f, 1.0f, "%.1f");
-		ImGui::SameLine();
-		ImGui::Text("Ball Elasticity");
-
-		ImGui::Checkbox("Gravity Only, No other Force", &bGravity);
-
-		ImGui::SliderFloat("##Cd: 공기저항계수", &Cd, 0.0f, 500.0f, "%0.5f");
-		ImGui::SameLine();
-		ImGui::Checkbox("AirForce", &bAirForce);
-
-		ImGui::SliderFloat2("##WindForce", &windForce.x, -0.02f, 0.02f, "%.3f");
-		ImGui::SameLine();
-		ImGui::Checkbox("WindForce", &bWindForce);
-		
+		  
 		ImGui::Checkbox("Manentic ", &bMagnetic);
 
 		if (ImGui::Button("Explore"))

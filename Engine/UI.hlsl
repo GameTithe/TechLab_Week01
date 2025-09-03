@@ -44,12 +44,12 @@ PS_INPUT mainVS(VS_INPUT input)
 float4 mainPS(PS_INPUT input) : SV_Target
 {
     float4 tex0 = UITexture.Sample(UISampler, input.uv);
-    
+      
     if (IsHovering == 1)
     {
         tex0.rgb *= 1.5; 
     }
     
-    //color.a ·Î fadeout Ã³¸®?? 
+    
     return float4(tex0.rgb, tex0.a);
 }
