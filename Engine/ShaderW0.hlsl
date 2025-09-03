@@ -44,7 +44,7 @@ struct VS_OUT
 VS_OUT mainVS(VS_INPUT input )
 {
     VS_OUT output;
-    output.position = input.position * float4(Scale + 0.1, Scale + 0.1, Scale + 0.1,1) + float4(Offset, 0);
+    output.position = input.position * float4(Scale + 0.02, Scale + 0.02, Scale, 1) + float4(Offset, 0);
     output.color = input.color; 
     output.uv = input.uv;
     
