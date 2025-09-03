@@ -1,32 +1,30 @@
-cbuffer constants : register(b0)
+// ShaderW0.hlsl 파일 전체를 아래 코드로 교체하세요.
+
+cbuffer PerFrame : register(b0)
 {
+    // C++의 FVector(float3)와 맞추기 위해 float3로 변경
     float3 Offset;
     float Scale;
-}
-struct VS_INPUT
-{
-    float4 position : POSITION;    // input position
-    float4 color : COLOR;           // input color 
+    float4 ObjectColor; // C++의 Color(float3)와 Alpha(float)를 합친 것
 };
 
-struct PS_INPUT
+struct VS_OUT
 {
-    float4 position : SV_POSITION; // Transformed position
-    float4 color : COLOR;
+    float4 position : SV_POSITION;
+    float4 color : COLOR; 
 };
 
-PS_INPUT mainVS(VS_INPUT input)
+VS_OUT mainVS(float4 position : POSITION, float4 color : COLOR)
 {
-    PS_INPUT output;
-    output.position = input.position * float4(Scale, Scale, Scale,1) + float4(Offset, 0);
-    output.color = input.color; 
-    
+    VS_OUT output;
+    // Offset이 float3이므로, float4 생성자에 맞게 z 요소를 0으로 채워줍니다.
+    output.position = position * float4(Scale, Scale, 1.0, 1.0) + float4(Offset, 0.0);
+    output.color = color;
     return output;
 }
 
-
-float4 mainPS(PS_INPUT input) : SV_Target
+float4 mainPS(VS_OUT input) : SV_TARGET
 {
-    float2 norm = input.position.xy / 1024.0f;
-    return float4(norm, norm.x, 1.0f);
+    // 상수 버퍼에서 직접 가져온 ObjectColor를 최종 색상으로 사용
+    return ObjectColor;
 }

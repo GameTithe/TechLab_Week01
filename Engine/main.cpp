@@ -45,7 +45,7 @@ const int winHeight = 1024;
 
 static bool MouseClicked = false; 
 
-// ���� �޼����� ó���� �Լ� 
+// ���� �޼����� ó���� �Լ� 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
@@ -58,6 +58,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
+	case WM_ACTIVATE: // â�� Ȱ��ȭ ���°� ����� ��
+		if (LOWORD(wParam) != WA_INACTIVE) // Ȱ��ȭ�� ��
+		{
+			RECT rect;
+			GetClientRect(hWnd, &rect);
+			ClientToScreen(hWnd, (LPPOINT)&rect.left); // ���-���� ��ǥ ��ȯ
+			ClientToScreen(hWnd, (LPPOINT)&rect.right); // �ϴ�-���� ��ǥ ��ȯ
+			ClipCursor(&rect); // Ŀ���� �ش� �簢�� ������ ����
+		}
+		else // ��Ȱ��ȭ�� ��
+		{
+			ClipCursor(NULL); // Ŀ�� ���α� ����
+		}
+		break;
+
 	case WM_DESTROY:
 		// signal the the app should quit
 		PostQuitMessage(0);
@@ -187,15 +202,15 @@ struct FVector
 	}
 };
 
-// ?�성???��??�기 ?�한 ?�거??enum) ?�의
+// ?�성???��??�기 ?�한 ?�거??enum) ?�의
 enum EAttribute
 {
-	WATER, // �?
-	FIRE,  // �?
-	GRASS  // ?�
+	WATER, // �?
+	FIRE,  // �?
+	GRASS  // ?�
 };
 
-// ?�성 ?�성??체크?�는 ?�우�??�수
+// ?�성 ?�성??체크?�는 ?�우�??�수
 bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
 {
 	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
@@ -215,23 +230,23 @@ inline float Dot(const FVector& v1, const FVector& v2)
 class URenderer
 {
 public:
-	// D3D11 Device, Device Context, Swap Chain??관리하�??�한 ?�인?�들 
-	ID3D11Device* Device = nullptr;						//Gpu?� ?�신 ?�기 ?�한 Device
-	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU 명령 ?�행???�당?�는 Context
-	IDXGISwapChain* SwapChain = nullptr;				// ?�레??버터�?교체?�는 ???�용?�는 Swap Chain
+	// D3D11 Device, Device Context, Swap Chain??관리하�??�한 ?�인?�들 
+	ID3D11Device* Device = nullptr;						//Gpu?� ?�신 ?�기 ?�한 Device
+	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU 명령 ?�행???�당?�는 Context
+	IDXGISwapChain* SwapChain = nullptr;				// ?�레??버터�?교체?�는 ???�용?�는 Swap Chain
 
-	// ?�더링에 ?�요??리소??�??�태�?관리하�??�한 변?�들 
-	ID3D11Texture2D* FrameBuffer = nullptr;					// ?�면 출력??
-	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// ?�스처�? ?�터 ?�겟으�??�용?�는 �?
-	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer ?�태 (컬링, 채우�?모드 ?? 
-	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (?�이?�에 ?�달???�이???�?�용)
+	// ?�더링에 ?�요??리소??�??�태�?관리하�??�한 변?�들 
+	ID3D11Texture2D* FrameBuffer = nullptr;					// ?�면 출력??
+	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// ?�스처�? ?�터 ?�겟으�??�용?�는 �?
+	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer ?�태 (컬링, 채우�?모드 ?? 
+	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (?�이?�에 ?�달???�이???�?�용)
 
 
 	//UI
 	ID3D11VertexShader* UIVS = nullptr;
 	ID3D11PixelShader* UIPS = nullptr;
 	ID3D11InputLayout* UIInputLayout = nullptr;
- 	ID3D11Buffer* UIVertexBuffer = nullptr;  // ���� VB
+ 	ID3D11Buffer* UIVertexBuffer = nullptr;  // ���� VB
 	ID3D11Buffer* UIPerFrameCB = nullptr;
 	ID3D11ShaderResourceView* UITitleSRV = nullptr;
 	ID3D11ShaderResourceView* UIStartSRV = nullptr;
@@ -241,12 +256,12 @@ public:
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
 	FLOAT ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	D3D11_VIEWPORT ViewportInfo;	// ������ ������ �����ϴ� ����Ʈ ���� 
+	D3D11_VIEWPORT ViewportInfo;	// ������ ������ �����ϴ� ����Ʈ ���� 
 	 
 
 public:
 
-	// ?�더??초기???�수
+	// ?�더??초기???�수
 	void Create(HWND hWindow)
 	{
 		CreateDeviceAndSwapChain(hWindow);
@@ -255,33 +270,33 @@ public:
 
 		CreateRasterizerState();
 
-		// depth/stencil buffer & blend state???�루지 ?�음 
+		// depth/stencil buffer & blend state???�루지 ?�음 
 	}
 
 
 	void CreateDeviceAndSwapChain(HWND hWindow)
 	{
-		// 지?�하??Direct3D 기능 ?�벨???�의 
+		// 지?�하??Direct3D 기능 ?�벨???�의 
 		D3D_FEATURE_LEVEL featurelevels[] = { D3D_FEATURE_LEVEL_11_0 };
 
 		// Swap Chain 
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-		swapChainDesc.BufferDesc.Width = 0; //�??�기??맞기 ?�동조정
-		swapChainDesc.BufferDesc.Height = 0; //�??�기??맞기 ?�동조정	
-		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // ?�반?�인 RGBA ?�맷
-		swapChainDesc.SampleDesc.Count = 1; // 멀???�플링을 ?�용?��? ?�음
-		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // ?�더 ?�겟으�??�용
-		swapChainDesc.BufferCount = 2; // ?�블 버퍼�?
+		swapChainDesc.BufferDesc.Width = 0; //�??�기??맞기 ?�동조정
+		swapChainDesc.BufferDesc.Height = 0; //�??�기??맞기 ?�동조정	
+		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // ?�반?�인 RGBA ?�맷
+		swapChainDesc.SampleDesc.Count = 1; // 멀???�플링을 ?�용?��? ?�음
+		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // ?�더 ?�겟으�??�용
+		swapChainDesc.BufferCount = 2; // ?�블 버퍼�?
 		swapChainDesc.OutputWindow = hWindow;
-		swapChainDesc.Windowed = TRUE; // �?모드 
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ?�왑 방식
+		swapChainDesc.Windowed = TRUE; // �?모드 
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ?�왑 방식
 
 		// Create Dircet Deivce & Swap Chain
 		D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
 									  D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
 									  featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION, &swapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
-		// SwapChain  ?�보 가?�오�?
+		// SwapChain  ?�보 가?�오�?
 		SwapChain->GetDesc(&swapChainDesc);
 
 		// Set Viewport
@@ -292,7 +307,7 @@ public:
 	{
 		if (DeviceContext)
 		{
-			DeviceContext->Flush(); // ?�아?�는 GPU 명령??모두 ?�행
+			DeviceContext->Flush(); // ?�아?�는 GPU 명령??모두 ?�행
 		}
 
 		if (SwapChain)
@@ -310,13 +325,13 @@ public:
 
 	void CreateFrameBuffer()
 	{
-		// �?버처 ?�스�?가?�오�?
+		// �?버처 ?�스�?가?�오�?
 		SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&FrameBuffer);
 
-		// RTV ?�성
+		// RTV ?�성
 		D3D11_RENDER_TARGET_VIEW_DESC framebufferRTVdesc = {};
-		framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // ?�반?�인 RGBA ?�맷
-		framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D ?�스처로 ?�정	
+		framebufferRTVdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB; // ?�반?�인 RGBA ?�맷
+		framebufferRTVdesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D; // 2D ?�스처로 ?�정	
 
 		Device->CreateRenderTargetView(FrameBuffer, &framebufferRTVdesc, &FrameBufferRTV);
 	}
@@ -338,8 +353,8 @@ public:
 	void CreateRasterizerState()
 	{
 		D3D11_RASTERIZER_DESC rasterizerDesc = {};
-		rasterizerDesc.FillMode = D3D11_FILL_SOLID; // 채우�?모드  
-		rasterizerDesc.CullMode = D3D11_CULL_BACK; // �??�이??컬링  
+		rasterizerDesc.FillMode = D3D11_FILL_SOLID; // 채우�?모드  
+		rasterizerDesc.CullMode = D3D11_CULL_BACK; // �??�이??컬링  
 
 		Device->CreateRasterizerState(&rasterizerDesc, &RasterizerState);
 	}
@@ -357,7 +372,7 @@ public:
 	{
 		RasterizerState->Release();
 
-		DeviceContext->OMSetRenderTargets(0, nullptr, nullptr); // ?�더 ?�겟을 초기??
+		DeviceContext->OMSetRenderTargets(0, nullptr, nullptr); // ?�더 ?�겟을 초기??
 
 
 		ReleaseFrameBuffer();
@@ -366,11 +381,11 @@ public:
 
 	void SwapBuffer()
 	{
-		SwapChain->Present(1, 0); // 1: VSync ?�성??=> GPU ?�레???�도 & ?�면 갱신 ?�도 ?�기??
+		SwapChain->Present(1, 0); // 1: VSync ?�성??=> GPU ?�레???�도 & ?�면 갱신 ?�도 ?�기??
 	} 
 	void CreateUIResources()
 	{
-		//���̴� ������
+		//���̴� ������
 		ID3DBlob* vsBlob = nullptr, * psBlob = nullptr;
 		D3DCompileFromFile(L"UI.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vsBlob, nullptr);
 		D3DCompileFromFile(L"UI.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &psBlob, nullptr);
@@ -386,7 +401,7 @@ public:
 		Device->CreateInputLayout(uiInputLayout, ARRAYSIZE(uiInputLayout),
 			vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &UIInputLayout);
 
-		// ���� VB 
+		// ���� VB 
 		D3D11_BUFFER_DESC vertexBufferDesc{};
 		vertexBufferDesc.ByteWidth = sizeof(UIVertex) * UIVBMaxVerts;
 		vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
@@ -396,7 +411,7 @@ public:
 
 		//Perframe CB
 		D3D11_BUFFER_DESC constBufferDesc{};
-		constBufferDesc.ByteWidth = 16; // float4 ���� (WindowSize(2)+pad(2))
+		constBufferDesc.ByteWidth = 16; // float4 ���� (WindowSize(2)+pad(2))
 		constBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		constBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		constBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -409,7 +424,7 @@ public:
 		Device->CreateSamplerState(&samplerDesc, &UISampler);
 
 
-		//// 6) ������ (�Ϲ� ����)
+		//// 6) ������ (�Ϲ� ����)
 		D3D11_BLEND_DESC blendDesc{}; blendDesc.RenderTarget[0].BlendEnable = TRUE;
 		blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
 		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
@@ -506,8 +521,8 @@ public:
 			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		// vertesxShader???�력 ?�그?�처?� ?�환?�는지 ?�인?�야?�니�?
-		// layout?�서 vertexShaderCSO�??�요로함 
+		// vertesxShader???�력 ?�그?�처?� ?�환?�는지 ?�인?�야?�니�?
+		// layout?�서 vertexShaderCSO�??�요로함 
 		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
@@ -561,6 +576,7 @@ public:
 		if (ConstantBuffer)
 		{
 			DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
+			DeviceContext->PSSetConstantBuffers(0, 1, &ConstantBuffer);
 		}
 	}
 
@@ -622,14 +638,16 @@ public:
 	{
 		FVector Offset;
 		float Scale;
+		FVector Color;
+		float Alpha;
 	};
 
 
 	void CreateConstantBuffer()
 	{
-		// 16byte ?�위�??�축?�야??
+		// 16byte ?�위�??�축?�야??
 		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16배수 ?�렬 
+		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16배수 ?�렬 
 		constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -647,16 +665,18 @@ public:
 		}
 	}
 
-	void UpdateConstant(FVector Offset, float Scale)
+	void UpdateConstant(FVector Offset, float Scale, FVector Color, float Alpha = 1.0f)
 	{
 		if (ConstantBuffer)
 		{
 			D3D11_MAPPED_SUBRESOURCE constantBufferMSR;
-
 			DeviceContext->Map(ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantBufferMSR);
+
 			FConstant* constants = (FConstant*)constantBufferMSR.pData;
 			constants->Offset = Offset;
 			constants->Scale = Scale;
+			constants->Color = Color; // ?�상 ?�보 ?�데?�트
+			constants->Alpha = Alpha; // ?�파 ?�보 ?�데?�트
 
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
@@ -712,8 +732,8 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	float winSize[2] = { winW, winH }; 
 
 	POINT pt;
-	GetCursorPos(&pt);              // ��ũ�� ��ǥ��
-	ScreenToClient(hWnd, &pt);      // ������ Ŭ���̾�Ʈ ��ǥ�� ��ȯ
+	GetCursorPos(&pt);              // ��ũ�� ��ǥ��
+	ScreenToClient(hWnd, &pt);      // ������ Ŭ���̾�Ʈ ��ǥ�� ��ȯ
 	int mouseX = pt.x;
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
@@ -748,7 +768,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
 
-	// ====== Ŭ�� ó�� ====== 
+	// ====== Ŭ�� ó�� ====== 
 	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
 	{
 		MenuAction.start = true;
@@ -801,9 +821,9 @@ public:
 	float RenderScale = 1.0f;
 	float TargetRenderScale = 1.0f;
 
-	float RefRadius = 0.2f;    // RenderScale = 1.0 기�?
-	float MinScale = 0.15f;    // ?��????�한??(?�무 ?�아?�서 ?�처??보이지 ?�게)
-	float MaxScale = 2.0f;     // ?��????�한??(과도??�???방�?)
+	float RefRadius = 0.2f;    // RenderScale = 1.0 기�?
+	float MinScale = 0.15f;    // ?��????�한??(?�무 ?�아?�서 ?�처??보이지 ?�게)
+	float MaxScale = 2.0f;     // ?��????�한??(과도??�???방�?)
 	float SmoothT = 0.2f;      // Lerp 비율
 public:
 	void SetLocation(FVector location)
@@ -815,7 +835,7 @@ public:
 	{
 		SetLocation(Player->GetLocation());
 
-		// ?�제 ?�더�??��??�을 목표 ?��??�을 ?�해 ?�진?�으�?조정
+		// ?�제 ?�더�??��??�을 목표 ?��??�을 ?�해 ?�진?�으�?조정
 		if (RenderScale != TargetRenderScale)
 		{
 			float playerRadius = std::max(Player->GetRadius(), 0.001f);
@@ -996,20 +1016,20 @@ public:
 class UPlayer : public UPrimitive
 {
 public:
-	// ?�성?? ?�레?�어 ?�성 ???�출??
+	// ?�성?? ?�레?�어 ?�성 ???�출??
 	UPlayer()
 	{
 		// 1. �÷��̾� �Ӽ��� �������� ����
-		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 �??�나�??�덤?�로 뽑아 ?�성?�로 지??
+		Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 �??�나�??�덤?�로 뽑아 ?�성?�로 지??
 
 		Radius = 0.08f; // �ʱ� ũ��
 		Mass = Radius * 10.0f;
-		Location = FVector(0.0f, 0.0f, 0.0f); // ?�면 중앙?�서 ?�작
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�도??마우?��? ?�르므�?0?�로 ?�작
+		Location = FVector(0.0f, 0.0f, 0.0f); // ?�면 중앙?�서 ?�작
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�도??마우?��? ?�르므�?0?�로 ?�작
 		Score = 0;
 	}
 
-	// UPrimitive??규칙(?�수 가???�수)???�라 모든 ?�수�?구현
+	// UPrimitive??규칙(?�수 가???�수)???�라 모든 ?�수�?구현
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 
@@ -1018,26 +1038,26 @@ public:
 
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// 규칙???�라 GetAttribute ?�수�?구현
+	// 규칙???�라 GetAttribute ?�수�?구현
 	virtual EAttribute GetAttribute() const override { return Attribute; }
-	// ?�용?��? ?�는 기능?��? 기본 ?�태�?구현
+	// ?�용?��? ?�는 기능?��? 기본 ?�태�?구현
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// ?�레?�어???�심 로직: 마우?��? ?�라 ?�직임
+	// ?�레?�어???�심 로직: 마우?��? ?�라 ?�직임
 	virtual void Movement() override
 	{
-		extern HWND hWnd; // WinMain??hWnd�??��??�서 참조
+		extern HWND hWnd; // WinMain??hWnd�??��??�서 참조
 
 		POINT mousePos;
-		GetCursorPos(&mousePos); // 마우?�의 ?�크�?좌표�??�음
-		ScreenToClient(hWnd, &mousePos); // ?�크�?좌표�??�로그램 �??��? 좌표�?변??
+		GetCursorPos(&mousePos); // 마우?�의 ?�크�?좌표�??�음
+		ScreenToClient(hWnd, &mousePos); // ?�크�?좌표�??�로그램 �??��? 좌표�?변??
 
 		RECT clientRect;
-		GetClientRect(hWnd, &clientRect); // ?�로그램 창의 ?�기�??�음
+		GetClientRect(hWnd, &clientRect); // ?�로그램 창의 ?�기�??�음
 
-		// �??��? 좌표(e.g., 0~1024)�?게임 ?�드 좌표(-1.0 ~ 1.0)�?변??
+		// �??��? 좌표(e.g., 0~1024)�?게임 ?�드 좌표(-1.0 ~ 1.0)�?변??
 		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
 		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
 
@@ -1045,13 +1065,13 @@ public:
 		Location.y = worldY;
 	}
 
-	// ?�기?� ?�수�?조절?�는 ?�로???�수??
+	// ?�기?� ?�수�?조절?�는 ?�로???�수??
 	void AddScore(int amount) { Score += amount; }
 	int GetScore() const { return Score; }
 	void SetRadius(float newRadius)
 	{
 		Radius = newRadius;
-		// ?�기가 변?�면 질량??같이 ?�데?�트
+		// ?�기가 변?�면 질량??같이 ?�데?�트
 		Mass = Radius * 10.0f;
 	}
 
@@ -1068,10 +1088,10 @@ public:
 class UEnemy : public UPrimitive
 {
 public:
-	// ?�성?? ENEMY ?�성 ???�출??
+	// ?�성?? ENEMY ?�성 ???�출??
 	UEnemy()
 	{
-		// 무작???�성, ?�치, ?�도, ?�기 ?�정
+		// 무작???�성, ?�치, ?�도, ?�기 ?�정
 		Attribute = (EAttribute)(rand() % 3);
 		Location = GetRandomLocationOusideScreen();
 
@@ -1079,11 +1099,11 @@ public:
 		Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
 		Velocity.y = (float)(rand() % 100 - 50) * enemySpeed;
 
-		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;  // 최소, 최�? ?�기 지??
+		Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;  // 최소, 최�? ?�기 지??
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitive??규칙???�라 모든 ?�수�?구현
+	// UPrimitive??규칙???�라 모든 ?�수�?구현
 
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
@@ -1091,25 +1111,25 @@ public:
 	virtual void SetVelocity(FVector newVelocity) override { Velocity = newVelocity; }
 	virtual float GetMass() const override { return Mass; }
 	virtual float GetRadius() const override { return Radius; }
-	// 규칙???�라 GetAttribute ?�수�?구현
+	// 규칙???�라 GetAttribute ?�수�?구현
 	virtual EAttribute GetAttribute() const override { return Attribute; }
 	virtual float GetMagnetic() const override { return 0.0f; }
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// ENEMY???�직임: 기존 UBall처럼 벽에 ?��?
+	// ENEMY???�직임: 기존 UBall처럼 벽에 ?��?
 	virtual void Movement() override
 	{
 		Location += Velocity;
 
-		if (Location.x > 1.0f - Radius || Location.x < -1.0f + Radius)
+		/*if (Location.x > 1.0f - Radius || Location.x < -1.0f + Radius)
 		{
 			Velocity.x *= -1.0f;
 		}
 		if (Location.y > 1.0f - Radius || Location.y < -1.0f + Radius)
 		{
 			Velocity.y *= -1.0f;
-		}
+		}*/
 	}
 
 	FVector GetRandomLocationOusideScreen()
@@ -1121,7 +1141,7 @@ public:
 			Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
 			Vector.z = 0.0f; // Z??고정
 		}
-		// [-1, 1] ?�사각형 ?��??��? 직접 조건 체크
+		// [-1, 1] ?�사각형 ?��??��? 직접 조건 체크
 		while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
 			   (Vector.y >= -1.0f && Vector.y <= 1.0f));
 
@@ -1139,18 +1159,18 @@ public:
 class UPrey : public UPrimitive
 {
 public:
-	// ?�성?? PREY ?�성 ???�출??
+	// ?�성?? PREY ?�성 ???�출??
 	UPrey()
 	{
-		// 무작???�성, ?�치, ?�기 ?�정
+		// 무작???�성, ?�치, ?�기 ?�정
 		Attribute = (EAttribute)(rand() % 3);
 		Location = FVector((rand() / (float)RAND_MAX) * 2.0f - 1.0f, (rand() / (float)RAND_MAX) * 2.0f - 1.0f, 0.0f);
-		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�직이지 ?�으므�??�도??0
+		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�직이지 ?�으므�??�도??0
 		Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
 		Mass = Radius * 10.0f;
 	}
 
-	// UPrimitive??규칙???�라 모든 ?�수�?구현
+	// UPrimitive??규칙???�라 모든 ?�수�?구현
 	virtual FVector GetLocation() const override { return Location; }
 	virtual void SetLocation(FVector newLocation) override { Location = newLocation; }
 	virtual FVector GetVelocity() const override { return Velocity; }
@@ -1162,10 +1182,10 @@ public:
 	virtual bool GetDivide() const override { return false; }
 	virtual void SetDivide(bool newDivide) override {}
 
-	// PREY???�직임: ?�직이지 ?�음
+	// PREY???�직임: ?�직이지 ?�음
 	virtual void Movement() override
 	{
-		// ?�무 코드???�음
+		// ?�무 코드???�음
 	}
 
 public:
@@ -1221,7 +1241,7 @@ public:
 
 		for (int i = 0; i < Count; ++i)
 		{
-			// NRE ?��?
+			// NRE ?��?
 			UPlayer* Cell = PlayerCells[i];
 			if (!Cell)
 			{
@@ -1233,13 +1253,13 @@ public:
 			CenterY += Location.y * Mass;
 		}
 
-		// Fallback: 질량 ?�이 거의 0??경우 ?�차 방�? 차원?�서 ?�균 ?�치 ?�용
+		// Fallback: 질량 ?�이 거의 0??경우 ?�차 방�? 차원?�서 ?�균 ?�치 ?�용
 		if (TotalMass < 1e-6)
 		{
 			CenterX = CenterY = 0.0f;
 			for (int i = 0; i < Count; ++i)
 			{
-				// NRE ?��?
+				// NRE ?��?
 				UPlayer* Cell = PlayerCells[i];
 				if (!Cell)
 				{
@@ -1268,7 +1288,7 @@ struct Merge
 class FPrimitiveVector
 {
 public:
-	// ?�레?�어 객체???�게 ?�근?�기 ?�한 ?�인??
+	// ?�레?�어 객체???�게 ?�근?�기 ?�한 ?�인??
 	UPlayer* Player = nullptr;
 
 	FPrimitiveVector()
@@ -1294,8 +1314,8 @@ public:
 			ReSize();
 		}
 
-		// 만약 추�??�는 객체가 ?�레?�어?�면, Player ?�인?�에 ?�??
-		// dynamic_cast??UPrimitive*�?UPlayer*�??�전?�게 변???�도
+		// 만약 추�??�는 객체가 ?�레?�어?�면, Player ?�인?�에 ?�??
+		// dynamic_cast??UPrimitive*�?UPlayer*�??�전?�게 변???�도
 		UPlayer* playerCandidate = dynamic_cast<UPlayer*>(primitive);
 		if (playerCandidate != nullptr)
 		{
@@ -1329,16 +1349,16 @@ public:
 	}
 	void RemoveAt(int index)
 	{
-		// ?�효?��? ?��? ?�덱?�면 즉시 종료
+		// ?�효?��? ?��? ?�덱?�면 즉시 종료
 		if (index < 0 || index >= Size)
 		{
 			return;
 		}
 
-		// 객체 메모�??�제
+		// 객체 메모�??�제
 		delete primitives[index];
 
-		// 마�?�??�소�??�재 ?�치�??�동 (가??빠른 ?�거 방법)
+		// 마�?�??�소�??�재 ?�치�??�동 (가??빠른 ?�거 방법)
 		primitives[index] = primitives[Size - 1];
 		primitives[Size - 1] = nullptr;
 		Size--;
@@ -1358,7 +1378,7 @@ public:
 		primitives = newPrimitives;
 	}
 
-	int size() const // 캡슐?��? ?�비해???�수�??�근
+	int size() const // 캡슐?��? ?�비해???�수�??�근
 	{
 		return Size;
 	}
@@ -1374,12 +1394,12 @@ public:
 
 	void ProcessGameLogic()
 	{
-		if (Player == nullptr) return; // ?�레?�어가 ?�으�??�무것도 ????
+		if (Player == nullptr) return; // ?�레?�어가 ?�으�??�무것도 ????
 
-		// 배열??거꾸�??�회?�야 객체 ?�거 ?�에???�전??
+		// 배열??거꾸�??�회?�야 객체 ?�거 ?�에???�전??
 		for (int i = Size - 1; i >= 0; --i)
 		{
-			// ?�기 ?�신(?�레?�어)과는 충돌 검?��? ?��? ?�음
+			// ?�기 ?�신(?�레?�어)과는 충돌 검?��? ?��? ?�음
 			if (primitives[i] == Player)
 			{
 				continue;
@@ -1389,23 +1409,33 @@ public:
 			float dist2 = FVector::Distance2(Player->GetLocation(), other->GetLocation());
 			float minDist = Player->GetRadius() + other->GetRadius();
 
-			// 충돌?�다�?
+			// 충돌?�다�?
 			if (dist2 < minDist * minDist)
 			{
-				// ?�기???�성?��? 체크
-				if (CheckWin(Player->GetAttribute(), other->GetAttribute()))
+
+				EAttribute playerAttr = Player->GetAttribute();
+				EAttribute otherAttr = other->GetAttribute();
+
+				if (CheckWin(playerAttr, otherAttr)) // �̰��� ��
+
 				{
 					Player->AddScore(10);
-					Player->SetRadius(Player->GetRadius() + 0.005f); // ũ�� ����
-				}
-				else // 지거나 비기???�성
-				{
-					Player->AddScore(-5);
-					Player->SetRadius(Player->GetRadius() - 0.005f); // ũ�� ����
+					Player->SetRadius(Player->GetRadius() + 0.005f);
+					RemoveAt(i); // ���� ��ü�� ����
 				}
 
-				// 충돌??객체???�거
-				RemoveAt(i);
+				else if (playerAttr != otherAttr) // ���� �� (����� �ʾ��� ��)
+				{
+					Player->AddScore(-5);
+					Player->SetRadius(Player->GetRadius() - 0.005f);
+					RemoveAt(i); // ���� ��ü�� ����
+				}
+
+				// else if (playerAttr == otherAttr) // ����� ��
+				// {
+				//     // �ƹ��͵� ���� ���� (��ü ���� X, ���� ���� X)
+				//     // ���⿡ '��'�ϴ� �Ҹ��� ����ϰų� ȭ�� ���� ȿ���� ������ �����ϴ�.
+				// }
 			}
 		}
 	}
@@ -1428,7 +1458,7 @@ public:
 	//			float dist2 = FVector::Distance2(pos2, pos1);
 	//			float minDist = radius1 + radius2;
 
-	//			// 구�? 구의 충돌처리 sqrt 비용??비싸�??�문??squre?�어?�는 ?�태?�서 거리 비교
+	//			// 구�? 구의 충돌처리 sqrt 비용??비싸�??�문??squre?�어?�는 ?�태?�서 거리 비교
 	//			if (dist2 < minDist * minDist)
 	//			{
 
@@ -1437,7 +1467,7 @@ public:
 	//					mergeList[mergeCount] = { i, j };
 	//					mergeCount++;
 	//				}
-	//				//Combine???�니거나 mergeCount가 최�? merge보다 ????
+	//				//Combine???�니거나 mergeCount가 최�? merge보다 ????
 	//				else
 	//				{
 	//					float dist = sqrt(dist2);
@@ -1450,7 +1480,7 @@ public:
 	//					FVector relativeVelocity = velocityOfB - velocityOfA;
 	//					float speed = Dot(relativeVelocity, normal);
 
-	//					// ?��? ?�도?� 충돌??구�???방향??같을 ?�만 충격??계산
+	//					// ?��? ?�도?� 충돌??구�???방향??같을 ?�만 충격??계산
 	//					if (speed < 0.0f)
 	//					{
 	//						float massOfA = a->GetMass();
@@ -1463,7 +1493,7 @@ public:
 	//						b->SetVelocity(velocityOfB + J / massOfB);
 	//					}
 
-	//					// ?�치 보정
+	//					// ?�치 보정
 	//					float penetration = minDist - dist;
 	//					FVector correction = normal * (penetration * 0.5f);
 	//					a->SetLocation(pos1 - correction);
@@ -1474,8 +1504,8 @@ public:
 	//	}
 	//}
 
-	// 쿨룽 ?�으�??�기???�과 
-	// 거리 ?�곱??반비례
+	// 쿨룽 ?�으�??�기???�과 
+	// 거리 ?�곱??반비례
 	void MagneticForce()
 	{
 		for (int i = 0; i < Size; ++i)
@@ -1488,7 +1518,7 @@ public:
 
 				UPrimitive* b = primitives[j];
 
-				float k = 0.001f; //?�치 ?�정???�해???�의�?조정
+				float k = 0.001f; //?�치 ?�정???�해???�의�?조정
 				float q1 = a->GetMagnetic();
 				float q2 = b->GetMagnetic();
 				float dist2 = FVector::Distance2(a->GetLocation(), b->GetLocation());
@@ -1497,7 +1527,7 @@ public:
 				float force = q1 * q2 * k / dist2;
 
 				FVector normal = a->GetLocation() - b->GetLocation();
-				//normal.Normalize(); // normalize?�주�??�무 커질 ???�으???�스
+				//normal.Normalize(); // normalize?�주�??�무 커질 ???�으???�스
 
 				totalMagneticForce += normal * force;
 			}
@@ -1507,7 +1537,7 @@ public:
 		}
 	}
 
-	////?�정 반�?�??�하????분할?�도�??�도
+	////?�정 반�?�??�하????분할?�도�??�도
 	//void Explosion()
 	//{
 	//	for (int i = 0; i < Size; ++i)
@@ -1528,7 +1558,7 @@ public:
 	//			FVector velocity = primitive->GetVelocity();
 	//			float radius = primitive->GetRadius() * 0.5f;
 
-	//			//?�로??�??�성
+	//			//?�로??�??�성
 	//			UPrimitive* newBall1 = new UBall(radius);
 	//			newBall1->SetLocation(FVector(location.x + radius, location.y, location.z));
 	//			newBall1->SetVelocity(FVector(velocity.x + 0.01f, velocity.y, velocity.z));
@@ -1539,7 +1569,7 @@ public:
 	//			newBall2->SetVelocity(FVector(velocity.x - 0.01f, velocity.y, velocity.z));
 	//			push_back(newBall2);
 
-	//			//기존 �??�거
+	//			//기존 �??�거
 	//			delete primitive;
 	//			primitives[i] = nullptr;
 	//			primitives[i] = primitives[Size - 1];
@@ -1551,7 +1581,7 @@ public:
 
 	//void Combination()
 	//{
-	//	//??index먼�? 처리�??�해???�렬
+	//	//??index먼�? 처리�??�해???�렬
 	//	for (int i = 0; i < mergeCount - 1; ++i)
 	//	{
 	//		for (int j = i + 1; j < mergeCount; ++j)
@@ -1559,7 +1589,7 @@ public:
 	//			int maxI = mergeList[i].indexA > mergeList[i].indexB ? mergeList[i].indexA : mergeList[i].indexB;
 	//			int maxJ = mergeList[j].indexA > mergeList[j].indexB ? mergeList[j].indexA : mergeList[j].indexB;
 
-	//			if (maxI < maxJ) // ?�림차순 ?�렬
+	//			if (maxI < maxJ) // ?�림차순 ?�렬
 	//			{
 	//				Merge temp = mergeList[i];
 	//				mergeList[i] = mergeList[j];
@@ -1573,7 +1603,7 @@ public:
 	//		int indexA = mergeList[i].indexA;
 	//		int indexB = mergeList[i].indexB;
 
-	//		//?�에 ?�는 index 중에?�도 ??값먼?� 계산?�기 ?�함
+	//		//?�에 ?�는 index 중에?�도 ??값먼?� 계산?�기 ?�함
 	//		if (indexA < indexB)
 	//		{
 	//			int temp = indexA;
@@ -1581,7 +1611,7 @@ public:
 	//			indexB = temp;
 	//		}
 
-	//		//?�외처리 
+	//		//?�외처리 
 	//		if (indexA == -1 || indexB == -1)
 	//		{
 	//			continue;
@@ -1622,7 +1652,7 @@ public:
 	//	mergeCount = 0;
 	//}
 
-	// ?�면 ?�역 ?�에 ?�는지 체크?�는 ?�수
+	// ?�면 ?�역 ?�에 ?�는지 체크?�는 ?�수
 	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius, 
 						float minX = -2.0f, float maxX = 2.0f, 
 						float minY = -2.0f, float maxY = 2.0f) const
@@ -1633,7 +1663,7 @@ public:
 				renderedLocation.y - renderedRadius <= maxY);
 	}
 
-	// 보이??객체?� 보이지 ?�는 객체�?분류?�는 ?�수
+	// 보이??객체?� 보이지 ?�는 객체�?분류?�는 ?�수
 	void ClassifyBorder(UCamera* camera, 
 						   std::vector<int>& InSideIndices, 
 						   std::vector<int>& OutSideIndices)
@@ -1657,18 +1687,18 @@ public:
 		}
 	}
 
-	// 보이지 ?�는 객체?�을 ??��?�는 ?�수
+	// 보이지 ?�는 객체?�을 ??��?�는 ?�수
 	void RemoveOutsidePrimitives(const std::vector<int>& invisibleIndices)
 	{
-		// ?�에?��?????�� (?�덱??변??방�?)
+		// ?�에?��?????�� (?�덱??변??방�?)
 		for (int i = invisibleIndices.size() - 1; i >= 0; i--)
 		{
 			int deleteIndex = invisibleIndices[i];
-			if (deleteIndex < 0 || deleteIndex >= Size) continue; // ?�전??체크
+			if (deleteIndex < 0 || deleteIndex >= Size) continue; // ?�전??체크
 			
 			delete primitives[deleteIndex];
 			
-			// 마�?�??�소�???��???�치�??�동
+			// 마�?�??�소�???��???�치�??�동
 			primitives[deleteIndex] = primitives[Size - 1];
 			primitives[Size - 1] = nullptr;
 			Size--;
@@ -1681,7 +1711,7 @@ public:
 	int Capacity = 0;
 	int Size = 0;
 
-	Merge mergeList[1024] = { -1, -1 };// 1충돌??2개의 구�? ?�요?�다�??�면, 1024�??�넉??것으�??�상, 만약 1024번을 ?�기�?그냥 충돌�?처리
+	Merge mergeList[1024] = { -1, -1 };// 1충돌??2개의 구�? ?�요?�다�??�면, 1024�??�넉??것으�??�상, 만약 1024번을 ?�기�?그냥 충돌�?처리
 	int mergeCount = 0;
 };
 
@@ -1710,38 +1740,53 @@ void TickSpawnerChrono(FPrimitiveVector* PrimitiveVector)
 	}
 }
 
+MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd)
+{
+	// 여기서는 간단하게 ImGui로만 표시하겠습니다.
+	MenuActions action = {};
+	ImGui::Begin("Game Over");
+	ImGui::Text("Game Over!");
+
+	// 최종 점수를 표시
+	// (이 기능을 위해서는 Game 구조체를 이 함수에도 넘겨주어야 합니다.
+	// 지금은 간단하게 버튼만 만들겠습니다.)
+
+	if (ImGui::Button("Restart"))
+	{
+		action.start = true;
+	}
+	if (ImGui::Button("Exit"))
+	{
+		action.exit = true;
+	}
+	ImGui::End();
+
+	return action;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{ 
+{
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
-	// ������ Ŭ���� �̸� 
 	WCHAR WindowClass[] = L"JungleWindowClass";
-
-	// ?�도???�?��?�??�름
 	WCHAR Title[] = L"Game Tech Lab";
-
-	// 각종 메세지�?처리???�수??WndProc???�수 ?�인?��? WindowClass 구조체에 ?�록
 	WNDCLASSW wndClass = { 0, WndProc, 0, 0, 0, 0, 0, 0, 0, WindowClass };
-
-	// ?�도???�래???�록
 	RegisterClassW(&wndClass);
 
-	// 1024 * 1024 ?�기???�도???�성
 	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
+		CW_USEDEFAULT, CW_USEDEFAULT, winWidth, winHeight, nullptr, nullptr, hInstance, nullptr);
 
+	// --- 초기화 ---
 	srand((unsigned int)time(NULL));
 
-	//각종 ?�성/초기??코드�??�기??추�?
 	URenderer renderer;
 	renderer.Create(hWnd);
 	renderer.CreateShader();
 	renderer.CreateConstantBuffer();
-	   
+	renderer.CreateUIResources();
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplWin32_Init((void*)hWnd);
 	ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
 
@@ -1749,203 +1794,181 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
+	// ★★ 수정 1: 게임 핵심 객체들을 WinMain 상단에 '선언'만 해둡니다.
 	FPrimitiveVector PrimitiveVector;
-
-	// ?�레?�어 ?�성 �?추�?
-	UPlayer* player = new UPlayer();
-	PrimitiveVector.push_back(player);
-
-	// 초기 ENEMY?� PREY ?�성
-	for (int i = 0; i < 10; ++i)
-	{
-		PrimitiveVector.push_back(new UEnemy());
-		PrimitiveVector.push_back(new UPrey());
-	}
-
-	//// 구에 관??Vertex Buffer????번만 ?�성 ???�사??
-	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
-
-	bool bIsExit = false;
-	bool bTestEnabled = false;
-
-	static bool prevLButton = false; 
-
-	bool bMagnetic = false;
-
-	bool bExplosion = false;
-	bool bCombination = false;
-
-
-	float elastic = 1.f;
-	FVector windForce(0.0f, 0.0f, 0.0f);
-	const int targetFPS = 30;
-	const float deltaTime = 1.0 / targetFPS;
-	const double targetFrameTime = 1000.0f / targetFPS; //목표 ?�레??
-
-	LARGE_INTEGER frequency;
-	QueryPerformanceFrequency(&frequency);
-
-	LARGE_INTEGER startTime, endTime;
-	double elapsedTime = 0.0f;
-
-	LARGE_INTEGER CreateStartTime, CurrentTime;
-	double CreateInterval = rand() % 1000 + 500;
-	QueryPerformanceCounter(&CreateStartTime);
-	//// �??�나 추�??�고 ?�작
-	//FPrimitiveVector PrimitiveVector;
-	//UBall* ball = new UBall();
-	//PrimitiveVector.push_back(ball);
 	UCamera* cam = new UCamera();
 
-	// Dirty ?�래그�? ?�한 벡터 - ?�더링할 객체???�덱?�만 ?�??
-	std::vector<int> InsidePrimitives;
+	// --- 타이머 설정 ---
+	LARGE_INTEGER frequency;
+	QueryPerformanceFrequency(&frequency);
+	LARGE_INTEGER startTime, endTime;
+	double elapsedTime = 0.0;
 
-	InitSpawnerChrono();
-
-	//Create UI Texture 
-	renderer.CreateUIResources();
-
-	//Create UI Texture 
-	renderer.CreateUIResources();
-
-	// Main Loop 
+	// --- 메인 루프 ---
+	bool bIsExit = false;
 	while (bIsExit == false)
 	{
 		QueryPerformanceCounter(&startTime);
 
 		MSG msg;
-
-		//Init InputManger 
 		InputManager::Input().BeginFrame();
-
-		//�޽��� ť���� msg�� �������� ť���� ������  
 		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
-
 			if (msg.message == WM_QUIT)
 			{
 				bIsExit = true;
 				break;
 			}
-		} 
-
-		//basic movement
-		for (int i = 0; i < PrimitiveVector.size(); i++)
-		{
-			PrimitiveVector[i]->Movement();
 		}
-		PrimitiveVector.ProcessGameLogic();
 
-		// 2. 카메?��? ?�레?�어�??�라가?�록 ?�데?�트
-		cam->UpdateCamera(PrimitiveVector.Player);
+		// --- 프레임 시작 ---
+		renderer.Prepare(); // 화면 지우기
+
+		ImGui_ImplDX11_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
 
 
-		// Frame Update
-		renderer.Prepare();
-		renderer.PrepareShader();
-
-		cam->UpdateCamera(PrimitiveVector[0]);
-
-		// Dirty ?�래�??�데?�트 �?�?보더 밖의 객체 ??��
-		std::vector<int> OutsidePrimitives; // ??��??객체?�의 ?�덱??
-
-		// FPrimitiveVector???�수�??�용?�여 보더 분류
-		PrimitiveVector.ClassifyBorder(cam, InsidePrimitives, OutsidePrimitives);
-
-		// �?보더 밖의 객체????��
-		PrimitiveVector.RemoveOutsidePrimitives(OutsidePrimitives);
-
-		// 보더 ?�의 객체?�만 ?�더�?
-		for (int idx : InsidePrimitives)
-		{
-			// ?�크�??�에?�의 좌표?� ?�기 계산
-			UPrimitive* prim = PrimitiveVector[idx];
-			if (prim != nullptr)
-			{
-				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
-				float renderedRadius = cam->GetCameraSpaceRadius(prim);
-				renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
-			}
-		}
-		TickSpawnerChrono(&PrimitiveVector);
-
-		////////// UI TEST ////////// 
-
+		// --- 상태별 로직 호출 ---
 		switch (ScreenState)
 		{
 		case Screen::MainMenu:
 		{
 			MenuActions action = DrawMainMenu(renderer, hWnd);
 			if (action.start)
-				ScreenState = Screen::Running;
+			{
+				// ★★ 수정 2: 'Start' 버튼을 눌렀을 때만 객체를 생성합니다.
 
+				// 만약을 위해 기존 객체들을 모두 삭제 (재시작 기능 대비)
+				while (PrimitiveVector.size() > 0)
+				{
+					PrimitiveVector.RemoveAt(0);
+				}
+				PrimitiveVector.Player = nullptr;
+
+				// 플레이어 생성 및 추가
+				UPlayer* player = new UPlayer();
+				PrimitiveVector.push_back(player);
+
+				// 초기 ENEMY와 PREY 생성
+				for (int i = 0; i < 30; ++i)
+				{
+					PrimitiveVector.push_back(new UEnemy());
+					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+				}
+
+				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
+				InitSpawnerChrono();
+			}
 			if (action.exit)
 				bIsExit = true;
-
 			break;
 		}
 		case Screen::Running:
-
-			break;
-
-		case Screen::EndingMenu:
-			break;
-		}
-
-
-		////////// UI TEST ////////// 
-
-		// ImGui Update
-		ImGui_ImplDX11_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-
-		ImGui::Begin("Game Info");
-		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-		ImGui::Text("Objects: %d", PrimitiveVector.size());
-
-		// ?�레?�어 ?�성???�스?�로 보여주기
-		if (PrimitiveVector.Player)
 		{
-			EAttribute attr = PrimitiveVector.Player->GetAttribute();
-			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-			ImGui::Text("Player Attribute: %s", attrText);
-		}
-		ImGui::End();
+			TickSpawnerChrono(&PrimitiveVector);
+			// --- 업데이트 로직 ---
+			for (int i = 0; i < PrimitiveVector.size(); i++)
+			{
+				PrimitiveVector[i]->Movement();
+			}
+			PrimitiveVector.ProcessGameLogic();
+			if (PrimitiveVector.Player)
+			{
+				cam->UpdateCamera(PrimitiveVector.Player);
+			}
+			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
+			{
+				ScreenState = Screen::EndingMenu;
+			}
 
+			// --- 렌더링 로직 ---
+			renderer.PrepareShader();
+			std::vector<int> visiblePrimitives, invisiblePrimitives;
+			PrimitiveVector.ClassifyBorder(cam, visiblePrimitives, invisiblePrimitives);
+
+			for (int idx : visiblePrimitives)
+			{
+				UPrimitive* prim = PrimitiveVector[idx];
+				if (prim != nullptr)
+				{
+					FVector objectColor;
+					switch (prim->GetAttribute())
+					{
+					case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
+					case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
+					case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
+					}
+					FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+					float renderedRadius = cam->GetCameraSpaceRadius(prim);
+					renderer.UpdateConstant(renderedLocation, renderedRadius, objectColor);
+					renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+				}
+			}
+			PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
+
+			// --- 게임 UI (ImGui) ---
+			ImGui::Begin("Game Info");
+			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+			ImGui::Text("Objects: %d", PrimitiveVector.size());
+			if (PrimitiveVector.Player)
+			{
+				EAttribute attr = PrimitiveVector.Player->GetAttribute();
+				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+				ImGui::Text("Player Attribute: %s", attrText);
+			}
+			ImGui::End();
+			break;
+		}
+		case Screen::EndingMenu:
+		{
+			MenuActions action = DrawEndingMenu(renderer, hWnd);
+			if (action.start)
+			{
+				// 재시작 로직 (MainMenu와 동일)
+				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
+				PrimitiveVector.Player = nullptr;
+				UPlayer* player = new UPlayer();
+				PrimitiveVector.push_back(player);
+				for (int i = 0; i < 20; ++i)
+				{
+					PrimitiveVector.push_back(new UEnemy());
+					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+				}
+				ScreenState = Screen::Running;
+			}
+			if (action.exit)
+				bIsExit = true;
+			break;
+		}
+		}
+
+		// --- 프레임 종료 ---
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-		// Swap Buffer
 		renderer.SwapBuffer();
 
-		do
-		{
-			Sleep(0);
-
+		// --- 프레임 속도 조절 ---
+		do {
 			QueryPerformanceCounter(&endTime);
+			elapsedTime = (double)(endTime.QuadPart - startTime.QuadPart);
+		} while (elapsedTime / frequency.QuadPart < (1.0 / 60.0));
+	}
 
-			elapsedTime = (endTime.QuadPart - startTime.QuadPart); 
+	// --- 리소스 해제 ---
+	delete cam; // new로 생성했으므로 delete 필요
+	ImGui_ImplDX11_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 
-		} while (elapsedTime < targetFrameTime);
+	renderer.ReleaseVertexBuffer(vertexBufferSphere);
+	renderer.ReleaseConstantBuffer();
+	renderer.ReleaseShader();
+	renderer.ReleaseUIResource();
+	renderer.Release();
 
-	} 
-		ImGui_ImplDX11_Shutdown();
-		ImGui_ImplWin32_Shutdown();
-		ImGui::DestroyContext();
-
-		//// ?�멸???�요??코드 
-		//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
-		
-		// WinMain?�서 ?�성??버퍼 ?�제
-		renderer.ReleaseVertexBuffer(vertexBufferSphere);
-		renderer.ReleaseConstantBuffer();
-
-		renderer.ReleaseShader();
-		renderer.Release();
-
+	CoUninitialize();
 	return 0;
 }
