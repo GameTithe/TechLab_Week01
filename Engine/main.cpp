@@ -400,14 +400,20 @@ public:
 
 					Player->AddScore(10);
 					Player->SetRadius(Player->GetRadius() + 0.005f);
+
 					RemoveAt(i); /** 상대 객체를 제거 */
 				}
 				else if (CheckWin(playerAttr, otherAttr)) /** 이기는 경우 */
 				{
 					USoundManager::Collide();
 
-					Player->AddScore(10);
-					Player->SetRadius(Player->GetRadius() + 0.005f);
+					float otherRadius = other->GetRadius();
+					int scoreToAdd = static_cast<int>(otherRadius * otherRadius * 1000);
+					Player->AddScore(scoreToAdd);
+
+					float playerRadius = Player->GetRadius();
+					float newRadius = sqrt(playerRadius * playerRadius + otherRadius * otherRadius);
+					Player->SetRadius(newRadius);
 					RemoveAt(i); /** 상대 객체를 제거 */
 				}
 				else if (playerAttr != otherAttr) /** 지는 경우 (비기지 않은 경우) */
