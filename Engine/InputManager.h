@@ -39,7 +39,20 @@ struct InputManager
 	 }
 	bool IsDown(MouseButton b)		const { return curMouse[(int)b]; }
 	bool IsClicked(MouseButton b)	const { return !curMouse[(int)b] && prevMouse[(int)b]; }
+	void GetNormalizedMousePos(float& x, float& y)
+	{
+		extern HWND hWnd;
 
+		POINT mousePos;
+		GetCursorPos(&mousePos);
+		ScreenToClient(hWnd, &mousePos);
+
+		RECT clientRect;
+		GetClientRect(hWnd, &clientRect);
+
+		x = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
+		y = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
+	}
 public:
 	bool curMouse[(int)MouseButton::Count] = { false };
 	bool prevMouse[(int)MouseButton::Count] = { false };
