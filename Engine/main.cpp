@@ -783,9 +783,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
 
-		// Tick
-		enemySpawner.Tick(&PrimitiveVector);
-		
 		// --- 렌더링 로직 ---
 		renderer.PrepareUnitShader();
 		std::vector<int> visiblePrimitives, invisiblePrimitives;
@@ -805,6 +802,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
 		 
+		float checkTime = 0.0f;
 
 		////////// UI TEST //////////  
 		switch (ScreenState)
@@ -843,7 +841,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 						UPrey* newPrey = new UPrey();
 						PrimitiveVector.push_back(newPrey);
 					}
-				}
+				} 
+
 				enemySpawner.Init(); // ★★ 추가: ENEMY 타이머 초기화
 				RECT rect;
 				GetClientRect(hWnd, &rect); // 윈도우의 클라이언트 영역 크기를 가져옴
@@ -865,22 +864,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		case Screen::Running:
 		{
+
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
+
+
+			// Tick 
+			enemySpawner.Tick(&PrimitiveVector);
 
 			MenuActions action = menuUI.DrawRunningMenu(renderer, hWnd);
 			auto now = std::chrono::steady_clock::now(); // 현재 시간 가져오기
 
 			// ENEMY 타이머 확인 및 생성
-			if (now >= enemySpawner.nextSpawn)
-			{
-				if (PrimitiveVector.size() < 100)
-					PrimitiveVector.push_back(new UEnemy());
-				enemySpawner.Init(); // ENEMY 타이머 리셋
+			//if (now >= enemySpawner.nextSpawn)
+			//{
+			//	if (PrimitiveVector.size() < 100)
+			//		PrimitiveVector.push_back(new UEnemy());
+			//	enemySpawner.Init(); // ENEMY 타이머 리셋
+			//}
+
+			if (Controller->PlayerCells[0]->Attribute < 0)
+			{	
+				// 플레이어 생성 및 추가
+				UPlayer* player = new UPlayer();
+				PrimitiveVector.push_back(player);
+
+				delete Controller;
+				Controller = nullptr;
+				Controller = new UController(10);
+				Controller->Enroll(player);
 			}
 
-			if (Controller->Count > 0)
+			if (Controller->Count > 0 )
 			{
 				// 카메라 업데이트
 				FVector CenterOfMass;
@@ -950,7 +966,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 
 			//시간제한 - 게임이 시작되고 3초가 지나면 승리
-			if(bGameStarted && currentGameTime >= 3.0)
+			if(bGameStarted && currentGameTime >= 30.0)
 				ScreenState = Screen::VictoryMenu;
 			  
 			ImGui::End();
@@ -996,6 +1012,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ScreenState = Screen::Running;
 				QueryPerformanceCounter(&GameStartTime);
 				bGameStarted = true;
+			}
+			if (action.menu)
+			{
+				ScreenState = Screen::MainMenu;
 			}
 			if (action.exit)
 				bIsExit = true;

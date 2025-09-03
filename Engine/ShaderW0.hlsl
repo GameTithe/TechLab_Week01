@@ -71,7 +71,7 @@ float4 mainPS(VS_OUT input) : SV_Target
     float a = max(0.0f, 1.0f - distance(uv, float2(0.5f, 0.5f)) / 0.5f);
     
     //0.02
-    float2 textureCoord = float2(fragCoord.x - iTime * velocity.x * 800.f, fragCoord.y - iTime * velocity.y * 800.f);
+    float2 textureCoord = float2(fragCoord.x - iTime * velocity.x * 500.f, fragCoord.y - iTime * velocity.y * 500.f);
     float4 text = NoiseTexture.Sample(NoiseSampler, textureCoord * zoom);
     
     float i = text.x;
