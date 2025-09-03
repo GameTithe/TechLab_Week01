@@ -12,14 +12,14 @@ SamplerState UISampler : register(s0);
 struct VS_INPUT
 {
     float2 position : POSITION;
-    float2 uv : TEXCOORD0;
+    float2 uv : TEXCOORD;
     float4 color : COLOR;
 };
 
 struct PS_INPUT
 {
     float4 position : SV_POSITION;
-    float2 uv : TEXCOORD0;
+    float2 uv : TEXCOORD;
     float4 color : COLOR;
 };
  

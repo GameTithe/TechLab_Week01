@@ -44,6 +44,8 @@ HWND hWnd = nullptr;
 //Manager
 #include "InputManager.h"
 
+#include "PlayerData.h"
+
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -208,16 +210,14 @@ struct FVector
 		}
 	}
 };
-
-// ?�성???��??�기 ?�한 ?�거??enum) ?�의
+ 
 enum EAttribute
 {
 	WATER, // �?
 	FIRE,  // �?
 	GRASS  // ?�
 };
-
-// ?�성 ?�성??체크?�는 ?�우�??�수
+ 
 bool CheckWin(EAttribute playerAttribute, EAttribute otherAttribute)
 {
 	if (playerAttribute == WATER && otherAttribute == FIRE) return true;
@@ -234,6 +234,8 @@ inline float Dot(const FVector& v1, const FVector& v2)
 //sphere
 #include "Sphere.h" 
 
+class UPlayer;
+
 class URenderer
 {
 public:
@@ -242,12 +244,12 @@ public:
 	ID3D11DeviceContext* DeviceContext = nullptr;		// GPU 명령 ?�행???�당?�는 Context
 	IDXGISwapChain* SwapChain = nullptr;				// ?�레??버터�?교체?�는 ???�용?�는 Swap Chain
 
-	// ?�더링에 ?�요??리소??�??�태�?관리하�??�한 변?�들 
-	ID3D11Texture2D* FrameBuffer = nullptr;					// ?�면 출력??
+ 	ID3D11Texture2D* FrameBuffer = nullptr;					// ?�면 출력??
 	ID3D11RenderTargetView* FrameBufferRTV = nullptr;		// ?�스처�? ?�터 ?�겟으�??�용?�는 �?
 	ID3D11RasterizerState* RasterizerState = nullptr;		// Rasterizer ?�태 (컬링, 채우�?모드 ?? 
 	ID3D11Buffer* ConstantBuffer = nullptr;					// Constant Buffer (?�이?�에 ?�달???�이???�?�용)
 
+	ID3D11Buffer* ConstantUnitBuffer = nullptr;
 
 	//UI
 	ID3D11VertexShader* UIVS = nullptr;
@@ -255,17 +257,26 @@ public:
 	ID3D11InputLayout* UIInputLayout = nullptr;
 	ID3D11Buffer* UIVertexBuffer = nullptr;  // ���� VB
 	ID3D11Buffer* UIPerFrameCB = nullptr;
+
 	ID3D11ShaderResourceView* UITitleSRV = nullptr;
 	ID3D11ShaderResourceView* UIStartSRV = nullptr;
-	ID3D11ShaderResourceView* UIExitSRV = nullptr;
+	ID3D11ShaderResourceView* UIExitSRV = nullptr; 
+	ID3D11ShaderResourceView* UIMenuSRV = nullptr; 
+	ID3D11ShaderResourceView* UIGameOverSRV = nullptr; 
+	ID3D11ShaderResourceView* UINameSRV = nullptr; 
 
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
-	FLOAT ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	FLOAT ClearColor[4] = { .3f, .3f, .3f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// ������ ������ �����ϴ� ����Ʈ ���� 
+	
+	// Unit Texture 
+	ID3D11ShaderResourceView* WaterBallNoiseSRV = nullptr;
+	ID3D11SamplerState* UnitNoiseSampler = nullptr; 
 
 
+	
 public:
 
 	// ?�더??초기???�수
@@ -405,6 +416,7 @@ public:
 		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 8,  D3D11_INPUT_PER_VERTEX_DATA,0},
 		{"COLOR",   0,DXGI_FORMAT_R32G32B32A32_FLOAT, 0,16,  D3D11_INPUT_PER_VERTEX_DATA,0},
 		};
+
 		Device->CreateInputLayout(uiInputLayout, ARRAYSIZE(uiInputLayout),
 								  vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &UIInputLayout);
 
@@ -441,12 +453,17 @@ public:
 		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 		Device->CreateBlendState(&blendDesc, &UIAlphaBlend);
-
+	
 		LoadTextureWIC(L"ui_title.png", &UITitleSRV);
 		LoadTextureWIC(L"ui_start.png", &UIStartSRV);
 		LoadTextureWIC(L"ui_exit.png", &UIExitSRV);
-
+		LoadTextureWIC(L"ui_gameover.png", &UIGameOverSRV);
+		LoadTextureWIC(L"ui_name.png", &UINameSRV);
+		LoadTextureWIC(L"ui_menu.png", &UIMenuSRV);
+		 
 	}
+ 
+
 
 	void ReleaseUIResource()
 	{
@@ -455,6 +472,9 @@ public:
 		if (UITitleSRV) { UITitleSRV->Release();   UITitleSRV = nullptr; }
 		if (UIStartSRV) { UIStartSRV->Release();   UIStartSRV = nullptr; }
 		if (UIExitSRV) { UIExitSRV->Release();   UIExitSRV = nullptr; }
+		if (UIGameOverSRV) { UIGameOverSRV->Release();   UIGameOverSRV = nullptr; }
+		if (UINameSRV) { UINameSRV->Release();   UINameSRV = nullptr; }
+
 		if (UIPerFrameCB) { UIPerFrameCB->Release(); UIPerFrameCB = nullptr; }
 		if (UIVertexBuffer) { UIVertexBuffer->Release(); UIVertexBuffer = nullptr; }
 		if (UIInputLayout) { UIInputLayout->Release(); UIInputLayout = nullptr; }
@@ -529,9 +549,7 @@ public:
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
 			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
-
-		// vertesxShader???�력 ?�그?�처?� ?�환?�는지 ?�인?�야?�니�?
-		// layout?�서 vertexShaderCSO�??�요로함 
+		 
 		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
 
 		Stride = sizeof(FVertexSimple);
@@ -539,6 +557,53 @@ public:
 		vertexShaderCSO->Release();
 		pixelShaderCSO->Release();
 	}
+
+	void CreateUnitShader()
+	{
+		ID3DBlob* vertexShaderCSO;
+		ID3DBlob* pixelShaderCSO;
+		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexShaderCSO, nullptr);
+
+		Device->CreateVertexShader(vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), nullptr, &SimpleVertexShader);
+
+		D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelShaderCSO, nullptr);
+		Device->CreatePixelShader(pixelShaderCSO->GetBufferPointer(), pixelShaderCSO->GetBufferSize(), nullptr, &SimplePixelShader);
+
+		D3D11_INPUT_ELEMENT_DESC layout[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+			{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 12,  D3D11_INPUT_PER_VERTEX_DATA,0}, 
+			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 }, 
+		};
+
+		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
+
+		Stride = sizeof(FVertexSimple);
+
+		vertexShaderCSO->Release();
+		pixelShaderCSO->Release();
+       
+		// Sampler
+		D3D11_SAMPLER_DESC samplerDesc{};
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.AddressU = samplerDesc.AddressV = samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		Device->CreateSamplerState(&samplerDesc, &UnitNoiseSampler);
+
+
+		////// 6) ������ (�Ϲ� ����)
+		//D3D11_BLEND_DESC blendDesc{}; blendDesc.RenderTarget[0].BlendEnable = TRUE;
+		//blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		//blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		//blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		//blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		//blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+		//blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		//blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		//Device->CreateBlendState(&blendDesc, &UIAlphaBlend);
+
+		LoadTextureWIC(L"noise.png", &WaterBallNoiseSRV); 
+	}
+
 
 	void ReleaseShader()
 	{
@@ -589,6 +654,31 @@ public:
 		}
 	}
 
+	void PrepareUnitShader()
+	{
+		DeviceContext->IASetInputLayout(SimpleInputLayout);
+		DeviceContext->VSSetShader(SimpleVertexShader, nullptr, 0);
+		DeviceContext->PSSetShader(SimplePixelShader, nullptr, 0);
+		  
+		if (ConstantBuffer)
+		{
+			DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
+			DeviceContext->PSSetConstantBuffers(0, 1, &ConstantBuffer);
+		}
+		if (ConstantUnitBuffer)
+		{
+			DeviceContext->VSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
+			DeviceContext->PSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
+		}
+
+		float blendFactor[4] = { 0,0,0,0 };
+		DeviceContext->OMSetBlendState(UIAlphaBlend, blendFactor, 0xffffffff);
+
+		//TODO 3��
+		DeviceContext->PSSetShaderResources(0, 1, &WaterBallNoiseSRV);
+		DeviceContext->PSSetSamplers(0, 1, &UnitNoiseSampler);
+		 
+	}
 	void PrepareShaderUI(ID3D11ShaderResourceView* UISRV)
 	{
 		DeviceContext->IASetInputLayout(UIInputLayout);
@@ -647,22 +737,23 @@ public:
 	{
 		FVector Offset;
 		float Scale;
-		FVector Color;
-		float Alpha;
-	};
-
-
+	}; 
 	void CreateConstantBuffer()
-	{
-		// 16byte ?�위�??�축?�야??
+	{ 
 		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // 16배수 ?�렬 
+		constantBufferDesc.ByteWidth = (sizeof(FConstant) + 0xf) & 0xfffffff0; // align 16byte 
 		constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-
+		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; 
 		Device->CreateBuffer(&constantBufferDesc, nullptr, &ConstantBuffer);
 
+
+		D3D11_BUFFER_DESC constantUnitBufferDesc = {};
+		constantUnitBufferDesc.ByteWidth = (sizeof(FPlayerInfo) + 0xf) & 0xfffffff0; // align 16byte 
+		constantUnitBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		constantUnitBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		constantUnitBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; 
+		Device->CreateBuffer(&constantUnitBufferDesc, nullptr, &ConstantUnitBuffer);
 	}
 
 	void ReleaseConstantBuffer()
@@ -674,7 +765,7 @@ public:
 		}
 	}
 
-	void UpdateConstant(FVector Offset, float Scale, FVector Color, float Alpha = 1.0f)
+	void UpdateConstant( FVector Offset, float Scale)
 	{
 		if (ConstantBuffer)
 		{
@@ -684,16 +775,46 @@ public:
 			FConstant* constants = (FConstant*)constantBufferMSR.pData;
 			constants->Offset = Offset;
 			constants->Scale = Scale;
-			constants->Color = Color; // ?�상 ?�보 ?�데?�트
-			constants->Alpha = Alpha; // ?�파 ?�보 ?�데?�트
+
+			DeviceContext->Unmap(ConstantBuffer, 0);
+		} 
+	}
+
+	void UpdateUnitConstant(int attribute,float time, FVector Offset, float Scale)
+	{
+		if (ConstantBuffer)
+		{
+			D3D11_MAPPED_SUBRESOURCE constantBufferMSR;
+
+			DeviceContext->Map(ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantBufferMSR);
+			FConstant* constants = (FConstant*)constantBufferMSR.pData;
+			constants->Offset = Offset;
+			constants->Scale = Scale;
 
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
-	}
 
-	void UpdateConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])
-	{
-		if (UIPerFrameCB)
+		if (ConstantUnitBuffer)
+		{
+			D3D11_MAPPED_SUBRESOURCE constantUnitBufferMSR;
+			
+			DeviceContext->Map(ConstantUnitBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantUnitBufferMSR);
+			FPlayerInfo* constants = (FPlayerInfo*)constantUnitBufferMSR.pData;
+			 
+			//constants->att = player;
+			//constants->iTime = time;
+			float resolution[2] = { winWidth, winHeight };
+			constants->att = attribute;
+			memcpy(constants->resolution, resolution, sizeof(float) * 2);
+			constants->iTime = time;
+			 
+			DeviceContext->Unmap(ConstantUnitBuffer, 0);
+
+		}
+	}
+	void UpdateUIConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])
+	{  
+		if (UIPerFrameCB) 
 		{
 			UIInfo mainUI = { {winSize[0], winSize[1]}, isHovering ? 1 : 0, 0.0f };
 
@@ -727,7 +848,7 @@ public:
 enum class Screen { MainMenu, Running, EndingMenu, Count };
 static Screen ScreenState = Screen::MainMenu;
 
-struct MenuActions { bool start = false; bool exit = false; };
+struct MenuActions { bool menu = false; bool start = false; bool running = false; bool gameover;  bool exit = false; };
 
 
 /**
@@ -1307,7 +1428,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	// Title UI   
 	float titleRatio[2] = { 0.5f, 0.3f };
 	float targetSize[2] = { 500, 500 };
-	renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
+	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
 	renderer.PrepareShaderUI(renderer.UITitleSRV);
 
 	// Start UI 
@@ -1318,7 +1439,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 
 	UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
 	bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
-	renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
+	renderer.UpdateUIConstant(winSize, targetSize, startHoverTest, startRatio);
 	renderer.PrepareShaderUI(renderer.UIStartSRV);
 
 
@@ -1330,7 +1451,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 
 	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
 	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
-	renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
 
 	// ====== Ŭ�� ó�� ====== 
@@ -1344,6 +1465,92 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 		MenuAction.exit = true;
 		USoundManager::UIClick();
 		//NewController->bIsEnabled = true;
+	}
+
+	return MenuAction; 
+} 
+ 
+MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd)
+{
+	MenuActions MenuAction;
+	MenuAction.gameover = true;
+
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	float winW = (float)(rect.right - rect.left);
+	float winH = (float)(rect.bottom - rect.top);
+	float winSize[2] = { winW, winH };
+
+	POINT pt;
+	GetCursorPos(&pt);              // ��ũ�� ��ǥ��
+	ScreenToClient(hWnd, &pt);      // ������ Ŭ���̾�Ʈ ��ǥ�� ��ȯ
+	int mouseX = pt.x;
+	int mouseY = pt.y;
+	float mousePos[2] = { mouseX, mouseY };
+
+	// Name UI 
+	float nameRatio[2] = { 0.5f, 0.5f };
+	float targetSize[2] = { winW, winH };
+
+	renderer.UpdateUIConstant(winSize, targetSize, false, nameRatio);
+	renderer.PrepareShaderUI(renderer.UINameSRV);
+
+	// Title UI   
+	float titleRatio[2] = { 0.5f, 0.3f };
+	targetSize[0] = 500; targetSize[1] = 500;
+	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
+	renderer.PrepareShaderUI(renderer.UIGameOverSRV);
+
+	// Start UI 
+	float startRatio[2] = { 0.5f, 0.7f };
+	float startUIOffset[2] = { 50.0f, 100.f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1] };
+
+	UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
+	bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, startHoverTest, startRatio);
+	renderer.PrepareShaderUI(renderer.UIStartSRV);
+	
+	// Menu UI 
+	float menuRatio[2] = { 0.5f, 0.8f };
+	float menuUIOffset[2] = { 50.0f, 100.0f };
+	targetSize[0] = 200; targetSize[1] = 150;
+	hoveringSize[0] = targetSize[0] - menuUIOffset[0]; hoveringSize[1] = targetSize[1] - menuUIOffset[1];
+
+	UIReact reactMenu = MakeRect(winSize, hoveringSize, menuRatio);
+	bool menuHoverTest = CheckMouseOnUI(reactMenu, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, menuHoverTest, menuRatio);
+	renderer.PrepareShaderUI(renderer.UIMenuSRV);
+
+	// Exit UI 
+	float exitRatio[2] = { 0.9f, 0.95f };
+	float exitUIOffset[2] = { 50.0f, 100.0f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+
+	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
+	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+	MenuActions action; 
+	// ====== Ŭ�� ó�� ====== 
+	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
+	{
+		action.start = true;
+		MenuAction = action;
+	}
+	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
+	{  
+		action.exit = true;
+		MenuAction = action;
+		//NewController->bIsEnabled = true;
+	}
+	if (InputManager::Input().IsClicked(MouseButton::Left) && menuHoverTest)
+	{ 
+		action.menu = true;  
+		MenuAction = action; 
 	}
 
 	return MenuAction;
@@ -1608,6 +1815,8 @@ public:
 		Location = FVector(0.0f, 0.0f, 0.0f); // ?�면 중앙?�서 ?�작
 		Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�도??마우?��? ?�르므�?0?�로 ?�작
 		Score = 0;
+		 
+		PlayerInfo.att = Attribute; 
 	}
 
 	// UPrimitive??규칙(?�수 가???�수)???�라 모든 ?�수�?구현
@@ -1664,6 +1873,7 @@ public:
 	float Mass;
 	int Score;
 	EAttribute Attribute;
+	FPlayerInfo PlayerInfo;
 };
 
 FVector GetRandomNoiseVector(float Intensity)
@@ -2349,29 +2559,7 @@ public:
 	}
 };
 
-MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd)
-{
-	// 여기서는 간단하게 ImGui로만 표시하겠습니다.
-	MenuActions action = {};
-	ImGui::Begin("Game Over");
-	ImGui::Text("Game Over!");
 
-	// 최종 점수를 표시
-	// (이 기능을 위해서는 Game 구조체를 이 함수에도 넘겨주어야 합니다.
-	// 지금은 간단하게 버튼만 만들겠습니다.)
-
-	if (ImGui::Button("Restart"))
-	{
-		action.start = true;
-	}
-	if (ImGui::Button("Exit"))
-	{
-		action.exit = true;
-	}
-	ImGui::End();
-
-	return action;
-}
 
 // WinMain 함수가 시작되기 전에 이 함수를 추가하세요.
 
@@ -2395,7 +2583,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// Sound Initialize
 	if (!USoundManager::Initialize())
 	{
-		return 0;
+		//return 0;
 	}
 	if (!USoundManager::LoadAllSounds())
 	{
@@ -2405,7 +2593,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	URenderer renderer;
 	renderer.Create(hWnd);
-	renderer.CreateShader();
+	///renderer.CreateShader();
+	renderer.CreateUnitShader();
 	renderer.CreateConstantBuffer();
 	renderer.CreateUIResources();
 
@@ -2426,7 +2615,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	// --- 타이머 설정 ---
 	LARGE_INTEGER frequency;
+	LARGE_INTEGER CreateStartTime;
 	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&CreateStartTime);
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0;
 
@@ -2448,16 +2639,41 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				break;
 			}
 		}
-
-		// --- 프레임 시작 ---
-		renderer.Prepare(); // 화면 지우기
-
+		renderer.Prepare();
+		renderer.PrepareUnitShader();
 		ImGui_ImplDX11_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
+		 
 
+		//Test Time
+		LARGE_INTEGER now;
+		QueryPerformanceCounter(&now);
+		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
+		float iTime = static_cast<float>(elapsed);
 
-		// --- 상태별 로직 호출 ---
+		//std::vector<int> OutsidePrimitives; 
+		 
+		//PrimitiveVector.ClassifyBorder(cam, InsidePrimitives, OutsidePrimitives);
+		// 
+		//PrimitiveVector.RemoveOutsidePrimitives(OutsidePrimitives);
+
+		 
+		//for (int idx : InsidePrimitives)
+		//{ 
+		//	UPrimitive* prim = PrimitiveVector[idx];
+		//	if (prim != nullptr)
+		//	{
+		//		FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+		//		float renderedRadius = cam->GetCameraSpaceRadius(prim);
+		//		//renderer.UpdateConstant(renderedLocation, renderedRadius);
+		//		renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
+		//		renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+		//	}
+		//}
+		//TickSpawnerChrono(&PrimitiveVector);
+
+		////////// UI TEST //////////  
 		switch (ScreenState)
 		{
 		case Screen::MainMenu:
@@ -2493,6 +2709,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				preySpawner.Init();  // ★★ 추가: PREY 타이머 초기화
 				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
 			}
+			if (action.gameover)
+				ScreenState = Screen::EndingMenu;
+
 			if (action.exit)
 				bIsExit = true;
 			break;
@@ -2538,43 +2757,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			{
 				ScreenState = Screen::EndingMenu;
 			}
-
-			// --- 렌더링 로직 ---
-			renderer.PrepareShader();
-			std::vector<int> visiblePrimitives, invisiblePrimitives;
-			PrimitiveVector.ClassifyBorder(cam, visiblePrimitives, invisiblePrimitives);
-
-			for (int idx : visiblePrimitives)
-			{
-				UPrimitive* prim = PrimitiveVector[idx];
-				if (prim != nullptr)
-				{
-					FVector objectColor;
-					switch (prim->GetAttribute())
-					{
-					case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
-					case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
-					case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
-					}
-					FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
-					float renderedRadius = cam->GetCameraSpaceRadius(prim);
-					renderer.UpdateConstant(renderedLocation, renderedRadius, objectColor);
-					renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
-				}
-			}
-			PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
-
-			// --- 게임 UI (ImGui) ---
-			ImGui::Begin("Game Info");
-			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-			ImGui::Text("Objects: %d", PrimitiveVector.size());
-			if (PrimitiveVector.Player)
-			{
-				EAttribute attr = PrimitiveVector.Player->GetAttribute();
-				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-				ImGui::Text("Player Attribute: %s", attrText);
-			}
-			ImGui::End();
 			break;
 		}
 		case Screen::EndingMenu:
@@ -2600,11 +2782,54 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				bIsExit = true;
 			break;
 		}
+
 		}
+			// --- 렌더링 로직 ---
+		renderer.PrepareShader();
+		std::vector<int> visiblePrimitives, invisiblePrimitives;
+		PrimitiveVector.ClassifyBorder(cam, visiblePrimitives, invisiblePrimitives);
+
+		for (int idx : visiblePrimitives)
+		{
+			UPrimitive* prim = PrimitiveVector[idx];
+			if (prim != nullptr)
+			{
+				FVector objectColor;
+				switch (prim->GetAttribute())
+				{
+				case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
+				case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
+				case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
+				}
+				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+				float renderedRadius = cam->GetCameraSpaceRadius(prim);
+				// renderer.UpdateConstant(renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
+				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+			}
+		}
+		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
+
+		// --- 게임 UI (ImGui) ---
+		ImGui::Begin("Game Info");
+		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+		ImGui::Text("Objects: %d", PrimitiveVector.size());
+		if (PrimitiveVector.Player)
+		{
+			EAttribute attr = PrimitiveVector.Player->GetAttribute();
+			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+			ImGui::Text("Player Attribute: %s", attrText);
+		}
+		ImGui::End();
+		
+
+
 
 		// --- 프레임 종료 ---
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+		// Swap Buffer
 		renderer.SwapBuffer();
 
 		// --- 프레임 속도 조절 ---
@@ -2627,6 +2852,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	renderer.ReleaseUIResource();
 	renderer.Release();
 
-	CoUninitialize();
+	      
+
 	return 0;
 }
