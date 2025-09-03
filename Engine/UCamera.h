@@ -28,7 +28,6 @@ public:
     // 월드 → 카메라 변환
     FVector ConvertToCameraSpaceLocation(FVector WorldCoord) const;
     float   ConvertToCameraSpaceRadius(float WorldRadius) const;
-
-    // 카메라 → 월드 변환(정적 헬퍼: Main 사용)
-    static FVector ConvertToWorldSpaceLocation(FVector CameraSpaceCoord);
+	// 카메라 → 월드 변환
+    FVector ConvertToWorldSpaceLocation(FVector CameraSpaceCoord);
 };

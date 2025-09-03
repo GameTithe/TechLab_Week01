@@ -69,6 +69,35 @@ void UPlayer::SetDivide(bool newDivide)
 	// Empty implementation
 }
 
+void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector CenterOfMass)
+{
+	const float MouseAccStrength = 0.0025f; // 마우스 힘에 의한 가속도 크기
+	const float GravityStrength = 0.01f;   // 중력에 의한 가속도 크기
+
+	FVector MouseAcc = MouseWorldLocation - CenterOfMass;
+	if (MouseAcc.Magnitude() < 0.025f)
+	{
+		MouseAcc = FVector(0.0f, 0.0f, 0.0f);
+		Velocity = FVector(0.0f, 0.0f, 0.0f);
+	}
+	else
+	{
+		MouseAcc *= MouseAccStrength;
+	}
+
+	FVector GravityForce = CenterOfMass - GetLocation();
+	GravityForce.Normalize();
+	GravityForce *= GravityStrength;
+	FVector GravityAcc = GravityForce * (1.0f / Mass);
+
+	Velocity += MouseAcc + GravityAcc;
+	if (Velocity.Magnitude() > MaxVelocity)
+	{
+		Velocity.Normalize();
+		Velocity *= MaxVelocity;
+	}
+}
+
 void UPlayer::Movement()
 {
 	// 넉백 상태일 때는 물리 기반으로 미끄러집니다.
@@ -112,7 +141,7 @@ void UPlayer::Movement()
 
 	if (UCamera::Main)
 	{
-		mouseWorldPos = UCamera::ConvertToWorldSpaceLocation(FVector(cameraX, cameraY, 0.0f));
+		mouseWorldPos = UCamera::Main->ConvertToWorldSpaceLocation(FVector(cameraX, cameraY, 0.0f));
 	}
 
 	// 2. 플레이어 위치에서 마우스 월드 위치를 향하는 '방향 벡터'를 구합니다.

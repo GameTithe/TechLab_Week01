@@ -5,7 +5,8 @@
 struct FVector
 {
     float x, y, z;
-    FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) {}
+	FVector() : x(0), y(0), z(0) {}
+    FVector(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
     static float Distance2(const FVector& a, const FVector& b)
     {
@@ -29,6 +30,7 @@ struct FVector
     FVector& operator-=(const FVector& v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
     FVector  operator-(const FVector& v) const { return { x - v.x, y - v.y, z - v.z }; }
     FVector& operator*=(const FVector& v) { x *= v.x; y *= v.y; z *= v.z; return *this; }
+    FVector& operator*=(float s) { x*= s, y*= s, z*= s; return *this; }
     FVector  operator*(const FVector& v) const { return { x * v.x, y * v.y, z * v.z }; }
     FVector  operator*(float s) const { return { x * s, y * s, z * s }; }
     FVector& operator/=(const FVector& v) { x /= v.x; y /= v.y; z /= v.z; return *this; }

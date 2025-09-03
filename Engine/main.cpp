@@ -860,6 +860,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					Cam->UpdateCamera(CenterOfMass, DesiredScale);
 				}
 			}
+			// 마우스 인풋 처리
+			FVector CenterOfMass, CursorWorldLocation;
+			if (Controller.TryGetCenterOfMass(CenterOfMass))
+			{
+				float normalizedX, normalizedY;
+				InputManager::Input().GetNormalizedMousePos(normalizedX, normalizedY);
+				CursorWorldLocation = UCamera::Main->ConvertToWorldSpaceLocation(FVector(normalizedX, normalizedY, 0.0f));
+				for (int i = 0; i < Controller.Count; ++i)
+				{
+					UPlayer* cell = Controller.PlayerCells[i];
+					if (cell)
+					{
+						// cell->ApplyMouseForceAndGravity(CursorWorldLocation, CenterOfMass);
+						// 현재 Movement() 자체적으로 마우스 인풋 처리 로직 가지고 있어 임시로 주석 처리.
+						// Movement()를 통한 계산은 플레이어 분열시 확장성이 없어 추후 교체.
+					}
+				}
+			}
+			for (int i = 0; i < PrimitiveVector.size(); i++)
+			{
+				PrimitiveVector[i]->Movement();
+			}
+			PrimitiveVector.ProcessGameLogic();
 			// --- 업데이트 로직 ---
 			for (int i = 0; i < PrimitiveVector.size(); i++)
 			{
@@ -874,7 +897,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 
 			// --- 게임 UI (ImGui) ---
-			ImGui::Begin("Game Info");
+			ImGui::Begin("Game Info");			
+			ImGui::Text("Camera Pos: %.2f %.2f %.2f ", Cam->Location.x, Cam->Location.y, Cam->Location.z);
+
 			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 			ImGui::Text("Objects: %d", PrimitiveVector.size());
 			if (PrimitiveVector.Player)

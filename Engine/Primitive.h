@@ -64,14 +64,14 @@ public:
 	virtual bool GetDivide() const override;
 	virtual void SetDivide(bool newDivide) override;
 
-	// ?�레?�어???�심 로직: 마우?��? ?�라 ?�직임
+	// 이동 로직
+	void ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector CenterOfMass);
 	virtual void Movement() override;
 
 	// ?�기?� ?�수�?조절?�는 ?�로???�수??
 	void AddScore(int amount);
 	int GetScore() const;
 	void SetRadius(float newRadius);
-
 
 public:
 	FVector Location;
@@ -81,6 +81,7 @@ public:
 	int Score;
 	EAttribute Attribute;
 	FPlayerInfo PlayerInfo;
+	const float MaxVelocity = 0.03f;
 	bool bIsKnockedBack = false;
 	std::chrono::steady_clock::time_point knockbackStartTime;
 };
