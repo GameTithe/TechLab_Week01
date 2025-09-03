@@ -130,10 +130,10 @@ public:
 
 	~UController()
 	{
-		for (int i = 0; i < Count; ++i)
+		/*for (int i = 0; i < Count; ++i)
 		{
 			delete PlayerCells[i];
-		}
+		}*/
 		delete[] PlayerCells;
 	}
 
@@ -226,7 +226,6 @@ public:
 		{
 			if (PlayerCells[i] == Cell)
 			{
-				delete PlayerCells[i];
 				PlayerCells[i] = PlayerCells[Count - 1];
 				PlayerCells[Count - 1] = nullptr;
 				--Count;
@@ -730,7 +729,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	FPrimitiveVector PrimitiveVector;
-	UController Controller(10); // 최대 10개의 플레이어 셀을 제어할 수 있는 컨트롤러
+	UController* Controller = new UController(10);;
 	UCamera* Cam = new UCamera();
 	UCamera::Main = Cam;
 	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
@@ -742,6 +741,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	QueryPerformanceCounter(&CreateStartTime);
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0;
+	double PlayTime = 0.0;
 
 	// --- 메인 루프 ---
 	bool bIsExit = false;
@@ -802,6 +802,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (action.start)
 			{
 				// ★★ 수정 2: 'Start' 버튼을 눌렀을 때만 객체를 생성합니다.
+				if (Controller)
+				{
+					delete Controller; // 기존 컨트롤러가 있다면 삭제
+					Controller = nullptr;
+				}
+				
 
 				// 만약을 위해 기존 객체들을 모두 삭제 (재시작 기능 대비)
 				while (PrimitiveVector.size() > 0)
@@ -813,7 +819,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				// 플레이어 생성 및 추가
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
-				Controller.Enroll(player); // 컨트롤러에 플레이어 셀 등록
+				
+				Controller = new UController(10); // 최대 10개의 플레이어 셀을 제어할 수 있는 컨트롤러
+				Controller->Enroll(player); // 컨트롤러에 플레이어 셀 등록
 
 				// 초기 ENEMY와 PREY 생성
 				for (int i = 0; i < 30; ++i)
@@ -830,6 +838,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ClientToScreen(hWnd, &center); // 클라이언트 좌표를 화면 전체 좌표로 변환
 				SetCursorPos(center.x, center.y); // 마우스 커서 위치를 설정
 				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
+				PlayTime = ImGui::GetTime();
 			}
 			if (action.gameover)
 				ScreenState = Screen::EndingMenu;
@@ -855,28 +864,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				enemySpawner.Init(); // ENEMY 타이머 리셋
 			}
 
-			if (Controller.Count > 0)
+			if (Controller->Count > 0)
 			{
 				// 카메라 업데이트
 				FVector CenterOfMass;
-				if (Controller.TryGetCenterOfMass(CenterOfMass))
+				if (Controller->TryGetCenterOfMass(CenterOfMass))
 				{
-					const float ReferenceRadius = 0.08f;
-					float SwarmRadius = Controller.GetPlayerSwarmRadius();
-					float DesiredScale = ReferenceRadius / SwarmRadius;
+					const float ReferenceRadius = 0.32f;
+					const float Alpha = 0.6f; // 0 < alpha < 1
+					float R = std::max(Controller->GetPlayerSwarmRadius(), 0.02f);
+					float DesiredScale = ReferenceRadius / std::pow(R, Alpha);
 					Cam->UpdateCamera(CenterOfMass, DesiredScale);
 				}
 			}
 			// 마우스 인풋 처리
 			FVector CenterOfMass, CursorWorldLocation;
-			if (Controller.TryGetCenterOfMass(CenterOfMass))
+			if (Controller->TryGetCenterOfMass(CenterOfMass))
 			{
 				float normalizedX, normalizedY;
 				InputManager::Input().GetNormalizedMousePos(normalizedX, normalizedY);
 				CursorWorldLocation = UCamera::Main->ConvertToWorldSpaceLocation(FVector(normalizedX, normalizedY, 0.0f));
-				for (int i = 0; i < Controller.Count; ++i)
+				for (int i = 0; i < Controller->Count; ++i)
 				{
-					UPlayer* cell = Controller.PlayerCells[i];
+					UPlayer* cell = Controller->PlayerCells[i];
 					if (cell)
 					{
 						cell->ApplyMouseForceAndGravity(CursorWorldLocation, CenterOfMass);
@@ -915,7 +925,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 
 			//시간제한
-			if(ImGui::GetTime() >= 3.0f)
+			if(ImGui::GetTime() - PlayTime >= 3.0f)
 				ScreenState = Screen::EndingMenu;
 			  
 			ImGui::End();
@@ -939,10 +949,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (action.start)
 			{
 				// 재시작 로직 (MainMenu와 동일)
+				if (Controller)
+				{
+					delete Controller;
+					Controller = nullptr;
+				}
 				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
 				PrimitiveVector.Player = nullptr;
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
+				Controller = new UController(10);
+				Controller->Enroll(player);
 				for (int i = 0; i < 20; ++i)
 				{
 					PrimitiveVector.push_back(new UEnemy());
@@ -950,6 +967,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				enemySpawner.Init();
 				ScreenState = Screen::Running;
+				PlayTime = ImGui::GetTime();
 			}
 			if (action.exit)
 				bIsExit = true;
@@ -961,10 +979,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (action.start)
 			{
 				// 재시작 로직 (MainMenu와 동일)
+				if (Controller)
+				{
+					delete Controller;
+					Controller = nullptr;
+				}
 				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
 				PrimitiveVector.Player = nullptr;
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
+				Controller = new UController(10);
+				Controller->Enroll(player);
 				for (int i = 0; i < 20; ++i)
 				{
 					PrimitiveVector.push_back(new UEnemy());
@@ -972,6 +997,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				enemySpawner.Init();
 				ScreenState = Screen::Running;
+				PlayTime = ImGui::GetTime();
 			}
 			if (action.exit)
 				bIsExit = true;
