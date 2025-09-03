@@ -245,7 +245,7 @@ public:
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
-	FLOAT ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	FLOAT ClearColor[4] = { .3f, .3f, .3f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// 렌더링 영역을 정의하는 뷰포트 정보 
 	
 	// Unit Texture 
@@ -548,7 +548,7 @@ public:
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
 			{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,       0, 12,  D3D11_INPUT_PER_VERTEX_DATA,0}, 
-			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 }, 
 		};
 
 		Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexShaderCSO->GetBufferPointer(), vertexShaderCSO->GetBufferSize(), &SimpleInputLayout);
@@ -644,7 +644,10 @@ public:
 			DeviceContext->VSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
 			DeviceContext->PSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
 		}
-		
+
+		float blendFactor[4] = { 0,0,0,0 };
+		DeviceContext->OMSetBlendState(UIAlphaBlend, blendFactor, 0xffffffff);
+
 		//TODO 3개
 		DeviceContext->PSSetShaderResources(0, 1, &WaterBallNoiseSRV);
 		DeviceContext->PSSetSamplers(0, 1, &UnitNoiseSampler);
@@ -2063,8 +2066,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		QueryPerformanceCounter(&now);
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
-
-		//
+		 
 		for (int idx : InsidePrimitives)
 		{ 
 			UPrimitive* prim = PrimitiveVector[idx];
@@ -2073,7 +2075,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
 				float renderedRadius = cam->GetCameraSpaceRadius(prim);
 				//renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.UpdateUnitConstant(player->Attribute, iTime, renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
