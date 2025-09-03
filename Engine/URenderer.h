@@ -41,6 +41,7 @@ public:
 	ID3D11ShaderResourceView* UIStartSRV = nullptr;
 	ID3D11ShaderResourceView* UIExitSRV = nullptr;
 	ID3D11ShaderResourceView* UIMenuSRV = nullptr;
+	ID3D11ShaderResourceView* UIVictorySRV = nullptr;
 	ID3D11ShaderResourceView* UIGameOverSRV = nullptr;
 	ID3D11ShaderResourceView* UINameSRV = nullptr;
 

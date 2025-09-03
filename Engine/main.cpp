@@ -894,6 +894,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			// --- 게임 UI (ImGui) ---
 			ImGui::Begin("Game Info");			
 			ImGui::Text("Camera Pos: %.2f %.2f %.2f ", Cam->Location.x, Cam->Location.y, Cam->Location.z);
+			
+			ImGuiIO& io = ImGui::GetIO();
+			io.FontGlobalScale = 1.5f;
+			ImGui::Text("Time: %.2f s", ImGui::GetTime());
 
 			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 			ImGui::Text("Objects: %d", PrimitiveVector.size());
@@ -903,6 +907,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
 				ImGui::Text("Player Attribute: %s", attrText);
 			}
+
+			//시간제한
+			if(ImGui::GetTime() >= 3.0f)
+				ScreenState = Screen::EndingMenu;
+			  
 			ImGui::End();
 
 			// --- 프레임 종료 ---
@@ -913,6 +922,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (action.menu)
 			{
  				ScreenState = Screen::MainMenu;
+			}
+			if (action.exit)
+				bIsExit = true;
+			break;
+		}
+		case Screen::VictoryMenu:
+		{
+			MenuActions action = menuUI.DrawVictoryMenu(renderer, hWnd);
+			if (action.start)
+			{
+				// 재시작 로직 (MainMenu와 동일)
+				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
+				PrimitiveVector.Player = nullptr;
+				UPlayer* player = new UPlayer();
+				PrimitiveVector.push_back(player);
+				for (int i = 0; i < 20; ++i)
+				{
+					PrimitiveVector.push_back(new UEnemy());
+					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+				}
+				enemySpawner.Init();
+				ScreenState = Screen::Running;
 			}
 			if (action.exit)
 				bIsExit = true;

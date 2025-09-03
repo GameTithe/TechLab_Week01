@@ -172,7 +172,7 @@ void URenderer::CreateUIResources()
 	LoadTextureWIC(L"ui_gameover.png", &UIGameOverSRV);
 	LoadTextureWIC(L"ui_name.png", &UINameSRV);
 	LoadTextureWIC(L"ui_menu.png", &UIMenuSRV);
-
+	LoadTextureWIC(L"ui_victory.png", &UIVictorySRV); 
 }
 void URenderer::ReleaseUIResource()
 {
@@ -183,6 +183,7 @@ void URenderer::ReleaseUIResource()
 	if (UIExitSRV) { UIExitSRV->Release();   UIExitSRV = nullptr; }
 	if (UIGameOverSRV) { UIGameOverSRV->Release();   UIGameOverSRV = nullptr; }
 	if (UINameSRV) { UINameSRV->Release();   UINameSRV = nullptr; }
+	if (UIVictorySRV) { UIVictorySRV->Release();   UIVictorySRV = nullptr; }
 	if (UIPerFrameCB) { UIPerFrameCB->Release(); UIPerFrameCB = nullptr; }
 	if (UIVertexBuffer) { UIVertexBuffer->Release(); UIVertexBuffer = nullptr; }
 	if (UIInputLayout) { UIInputLayout->Release(); UIInputLayout = nullptr; }
