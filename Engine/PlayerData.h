@@ -1,5 +1,8 @@
 #pragma once
 
+const int winWidth = 1024;
+const int winHeight = 1024;
+
 struct FPlayerInfo
 {
 	int att;

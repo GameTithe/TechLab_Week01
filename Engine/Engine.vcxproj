@@ -132,7 +132,9 @@
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Primitive.cpp" />
+    <ClCompile Include="MenuUI.cpp" />
     <ClCompile Include="SoundManager.cpp" />
+    <ClCompile Include="URenderer.cpp" />
     <ClCompile Include="UCamera.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -147,11 +149,14 @@
     <ClInclude Include="ImGui\imstb_truetype.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="Primitive.h" />
+    <ClInclude Include="MenuUI.h" />
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="PlayerData.h" />
     <ClInclude Include="Sphere.h" />
     <ClInclude Include="UCamera.h" />
     <ClInclude Include="UIInfo.h" />
+    <ClInclude Include="URenderer.h" />
+    <ClInclude Include="VertexInfo.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="ShaderW0.hlsl">

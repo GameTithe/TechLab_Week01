@@ -6,7 +6,7 @@ enum class MouseButton { Left = 0, Right = 1, Middle = 2, Count };
 
 struct InputManager
 {
-	static InputManager& Input() { static InputManager Instance; return Instance; }
+  	static InputManager& Input() { static InputManager Instance; return Instance; }
 
 	void BeginFrame()
 	{
