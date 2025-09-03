@@ -13,6 +13,6 @@ class MenuUI
 public:
 	MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd);
 	MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd);
-
+	MenuActions DrawRunningMenu(URenderer& renderer, HWND hWnd); 
 };
  
