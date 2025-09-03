@@ -58,6 +58,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
+	case WM_ACTIVATE: // â�� Ȱ��ȭ ���°� ����� ��
+		if (LOWORD(wParam) != WA_INACTIVE) // Ȱ��ȭ�� ��
+		{
+			RECT rect;
+			GetClientRect(hWnd, &rect);
+			ClientToScreen(hWnd, (LPPOINT)&rect.left); // ���-���� ��ǥ ��ȯ
+			ClientToScreen(hWnd, (LPPOINT)&rect.right); // �ϴ�-���� ��ǥ ��ȯ
+			ClipCursor(&rect); // Ŀ���� �ش� �簢�� ������ ����
+		}
+		else // ��Ȱ��ȭ�� ��
+		{
+			ClipCursor(NULL); // Ŀ�� ���α� ����
+		}
+		break;
+
 	case WM_DESTROY:
 		// signal the the app should quit
 		PostQuitMessage(0);
@@ -563,6 +578,7 @@ public:
 		if (ConstantBuffer)
 		{
 			DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
+			DeviceContext->PSSetConstantBuffers(0, 1, &ConstantBuffer);
 		}
 	}
 
@@ -624,6 +640,8 @@ public:
 	{
 		FVector Offset;
 		float Scale;
+		FVector Color;
+		float Alpha;
 	};
 
 
@@ -649,16 +667,18 @@ public:
 		}
 	}
 
-	void UpdateConstant(FVector Offset, float Scale)
+	void UpdateConstant(FVector Offset, float Scale, FVector Color, float Alpha = 1.0f)
 	{
 		if (ConstantBuffer)
 		{
 			D3D11_MAPPED_SUBRESOURCE constantBufferMSR;
-
 			DeviceContext->Map(ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantBufferMSR);
+
 			FConstant* constants = (FConstant*)constantBufferMSR.pData;
 			constants->Offset = Offset;
 			constants->Scale = Scale;
+			constants->Color = Color; // ?�상 ?�보 ?�데?�트
+			constants->Alpha = Alpha; // ?�파 ?�보 ?�데?�트
 
 			DeviceContext->Unmap(ConstantBuffer, 0);
 		}
@@ -1126,14 +1146,14 @@ public:
 	{
 		Location += Velocity;
 
-		//if (Location.x > 1.0f - Radius || Location.x < -1.0f + Radius)
-		//{
-		//	Velocity.x *= -1.0f;
-		//}
-		//if (Location.y > 1.0f - Radius || Location.y < -1.0f + Radius)
-		//{
-		//	Velocity.y *= -1.0f;
-		//}
+		/*if (Location.x > 1.0f - Radius || Location.x < -1.0f + Radius)
+		{
+			Velocity.x *= -1.0f;
+		}
+		if (Location.y > 1.0f - Radius || Location.y < -1.0f + Radius)
+		{
+			Velocity.y *= -1.0f;
+		}*/
 	}
 
 	FVector GetRandomLocationOusideScreen()
@@ -1418,20 +1438,30 @@ public:
 			// 충돌?�다�?
 			if (dist2 < minDist * minDist)
 			{
-				// ?�기???�성?��? 체크
-				if (CheckWin(Player->GetAttribute(), other->GetAttribute()))
+
+				EAttribute playerAttr = Player->GetAttribute();
+				EAttribute otherAttr = other->GetAttribute();
+
+				if (CheckWin(playerAttr, otherAttr)) // �̰��� ��
+
 				{
 					Player->AddScore(10);
-					Player->SetRadius(Player->GetRadius() + 0.005f); // ũ�� ����
-				}
-				else // 지거나 비기???�성
-				{
-					Player->AddScore(-5);
-					Player->SetRadius(Player->GetRadius() - 0.005f); // ũ�� ����
+					Player->SetRadius(Player->GetRadius() + 0.005f);
+					RemoveAt(i); // ���� ��ü�� ����
 				}
 
-				// 충돌??객체???�거
-				RemoveAt(i);
+				else if (playerAttr != otherAttr) // ���� �� (����� �ʾ��� ��)
+				{
+					Player->AddScore(-5);
+					Player->SetRadius(Player->GetRadius() - 0.005f);
+					RemoveAt(i); // ���� ��ü�� ����
+				}
+
+				// else if (playerAttr == otherAttr) // ����� ��
+				// {
+				//     // �ƹ��͵� ���� ���� (��ü ���� X, ���� ���� X)
+				//     // ���⿡ '��'�ϴ� �Ҹ��� ����ϰų� ȭ�� ���� ȿ���� ������ �����ϴ�.
+				// }
 			}
 		}
 	}
@@ -1757,39 +1787,54 @@ public:
 	}
 };
 
+MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd)
+{
+	// 여기서는 간단하게 ImGui로만 표시하겠습니다.
+	MenuActions action = {};
+	ImGui::Begin("Game Over");
+	ImGui::Text("Game Over!");
+
+	// 최종 점수를 표시
+	// (이 기능을 위해서는 Game 구조체를 이 함수에도 넘겨주어야 합니다.
+	// 지금은 간단하게 버튼만 만들겠습니다.)
+
+	if (ImGui::Button("Restart"))
+	{
+		action.start = true;
+	}
+	if (ImGui::Button("Exit"))
+	{
+		action.exit = true;
+	}
+	ImGui::End();
+
+	return action;
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
-	// ������ Ŭ���� �̸� 
 	WCHAR WindowClass[] = L"JungleWindowClass";
-
-	// ?�도???�?��?�??�름
 	WCHAR Title[] = L"Game Tech Lab";
-
-	// 각종 메세지�?처리???�수??WndProc???�수 ?�인?��? WindowClass 구조체에 ?�록
 	WNDCLASSW wndClass = { 0, WndProc, 0, 0, 0, 0, 0, 0, 0, WindowClass };
-
-	// ?�도???�래???�록
 	RegisterClassW(&wndClass);
 
-	// 1024 * 1024 ?�기???�도???�성
 	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-						   CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, nullptr, nullptr, hInstance, nullptr);
+		CW_USEDEFAULT, CW_USEDEFAULT, winWidth, winHeight, nullptr, nullptr, hInstance, nullptr);
 
+	// --- 초기화 ---
 	srand((unsigned int)time(NULL));
 
-	//각종 ?�성/초기??코드�??�기??추�?
 	URenderer renderer;
 	renderer.Create(hWnd);
 	renderer.CreateShader();
 	renderer.CreateConstantBuffer();
+	renderer.CreateUIResources();
 
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplWin32_Init((void*)hWnd);
 	ImGui_ImplDX11_Init(renderer.Device, renderer.DeviceContext);
 
@@ -1797,81 +1842,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
+	// ★★ 수정 1: 게임 핵심 객체들을 WinMain 상단에 '선언'만 해둡니다.
 	FPrimitiveVector PrimitiveVector;
-
-	// ?�레?�어 ?�성 �?추�?
-	UPlayer* player = new UPlayer();
-	PrimitiveVector.push_back(player);
-
-	// 초기 ENEMY?� PREY ?�성
-	for (int i = 0; i < 10; ++i)
-	{
-		PrimitiveVector.push_back(new UEnemy());
-		PrimitiveVector.push_back(new UPrey());
-	}
-
-	//// 구에 관??Vertex Buffer????번만 ?�성 ???�사??
-	//UBall::vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
-
-	bool bIsExit = false;
-	bool bTestEnabled = false;
-
-	static bool prevLButton = false;
-
-	bool bMagnetic = false;
-
-	bool bExplosion = false;
-	bool bCombination = false;
-
-
-	float elastic = 1.f;
-	FVector windForce(0.0f, 0.0f, 0.0f);
-	const int targetFPS = 30;
-	const float deltaTime = 1.0 / targetFPS;
-	const double targetFrameTime = 1000.0f / targetFPS; //목표 ?�레??
-
-	LARGE_INTEGER frequency;
-	QueryPerformanceFrequency(&frequency);
-
-	LARGE_INTEGER startTime, endTime;
-	double elapsedTime = 0.0f;
-
-	LARGE_INTEGER CreateStartTime, CurrentTime;
-	double CreateInterval = rand() % 1000 + 500;
-	QueryPerformanceCounter(&CreateStartTime);
-	//// �??�나 추�??�고 ?�작
-	//FPrimitiveVector PrimitiveVector;
-	//UBall* ball = new UBall();
-	//PrimitiveVector.push_back(ball);
 	UCamera* cam = new UCamera();
 
-	// Dirty ?�래그�? ?�한 벡터 - ?�더링할 객체???�덱?�만 ?�??
-	std::vector<int> InsidePrimitives;
+	// --- 타이머 설정 ---
+	LARGE_INTEGER frequency;
+	QueryPerformanceFrequency(&frequency);
+	LARGE_INTEGER startTime, endTime;
+	double elapsedTime = 0.0;
 
-	UEnemySpawner EnemySpawner(100,100);
-
-	//Create UI Texture 
-	renderer.CreateUIResources();
-
-	//Create UI Texture 
-	renderer.CreateUIResources();
-
-	// Main Loop 
+	// --- 메인 루프 ---
+	bool bIsExit = false;
 	while (bIsExit == false)
 	{
 		QueryPerformanceCounter(&startTime);
 
 		MSG msg;
-
-		//Init InputManger 
 		InputManager::Input().BeginFrame();
-
-		//�޽��� ť���� msg�� �������� ť���� ������  
 		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
-
 			if (msg.message == WM_QUIT)
 			{
 				bIsExit = true;
@@ -1879,121 +1871,152 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 		}
 
-		//basic movement
-		for (int i = 0; i < PrimitiveVector.size(); i++)
-		{
-			PrimitiveVector[i]->Movement();
-		}
-		PrimitiveVector.ProcessGameLogic();
+		// --- 프레임 시작 ---
+		renderer.Prepare(); // 화면 지우기
 
-		// 2. 카메?��? ?�레?�어�??�라가?�록 ?�데?�트
-		cam->UpdateCamera(PrimitiveVector.Player);
+		ImGui_ImplDX11_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
 
 
-		// Frame Update
-		renderer.Prepare();
-		renderer.PrepareShader();
-
-		cam->UpdateCamera(PrimitiveVector[0]);
-
-		// Dirty ?�래�??�데?�트 �?�?보더 밖의 객체 ??��
-		std::vector<int> OutsidePrimitives; // ??��??객체?�의 ?�덱??
-
-		// FPrimitiveVector???�수�??�용?�여 보더 분류
-		PrimitiveVector.ClassifyBorder(cam, InsidePrimitives, OutsidePrimitives);
-
-		// �?보더 밖의 객체????��
-		PrimitiveVector.RemoveOutsidePrimitives(OutsidePrimitives);
-
-		// 보더 ?�의 객체?�만 ?�더�?
-		for (int idx : InsidePrimitives)
-		{
-			// ?�크�??�에?�의 좌표?� ?�기 계산
-			UPrimitive* prim = PrimitiveVector[idx];
-			if (prim != nullptr)
-			{
-				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
-				float renderedRadius = cam->GetCameraSpaceRadius(prim);
-				renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
-			}
-		}
-		EnemySpawner.Tick(&PrimitiveVector);
-
-		////////// UI TEST ////////// 
-
+		// --- 상태별 로직 호출 ---
 		switch (ScreenState)
 		{
 		case Screen::MainMenu:
 		{
 			MenuActions action = DrawMainMenu(renderer, hWnd);
 			if (action.start)
-				ScreenState = Screen::Running;
+			{
+				// ★★ 수정 2: 'Start' 버튼을 눌렀을 때만 객체를 생성합니다.
 
+				// 만약을 위해 기존 객체들을 모두 삭제 (재시작 기능 대비)
+				while (PrimitiveVector.size() > 0)
+				{
+					PrimitiveVector.RemoveAt(0);
+				}
+				PrimitiveVector.Player = nullptr;
+
+				// 플레이어 생성 및 추가
+				UPlayer* player = new UPlayer();
+				PrimitiveVector.push_back(player);
+
+				// 초기 ENEMY와 PREY 생성
+				for (int i = 0; i < 30; ++i)
+				{
+					PrimitiveVector.push_back(new UEnemy());
+					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+				}
+
+				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
+				InitSpawnerChrono();
+			}
 			if (action.exit)
 				bIsExit = true;
-
 			break;
 		}
 		case Screen::Running:
-
-			break;
-
-		case Screen::EndingMenu:
-			break;
-		}
-
-
-		////////// UI TEST ////////// 
-
-		// ImGui Update
-		ImGui_ImplDX11_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-
-		ImGui::Begin("Game Info");
-		ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-		ImGui::Text("Objects: %d", PrimitiveVector.size());
-
-		// ?�레?�어 ?�성???�스?�로 보여주기
-		if (PrimitiveVector.Player)
 		{
-			EAttribute attr = PrimitiveVector.Player->GetAttribute();
-			const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-			ImGui::Text("Player Attribute: %s", attrText);
-		}
-		ImGui::End();
+			TickSpawnerChrono(&PrimitiveVector);
+			// --- 업데이트 로직 ---
+			for (int i = 0; i < PrimitiveVector.size(); i++)
+			{
+				PrimitiveVector[i]->Movement();
+			}
+			PrimitiveVector.ProcessGameLogic();
+			if (PrimitiveVector.Player)
+			{
+				cam->UpdateCamera(PrimitiveVector.Player);
+			}
+			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
+			{
+				ScreenState = Screen::EndingMenu;
+			}
 
+			// --- 렌더링 로직 ---
+			renderer.PrepareShader();
+			std::vector<int> visiblePrimitives, invisiblePrimitives;
+			PrimitiveVector.ClassifyBorder(cam, visiblePrimitives, invisiblePrimitives);
+
+			for (int idx : visiblePrimitives)
+			{
+				UPrimitive* prim = PrimitiveVector[idx];
+				if (prim != nullptr)
+				{
+					FVector objectColor;
+					switch (prim->GetAttribute())
+					{
+					case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
+					case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
+					case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
+					}
+					FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
+					float renderedRadius = cam->GetCameraSpaceRadius(prim);
+					renderer.UpdateConstant(renderedLocation, renderedRadius, objectColor);
+					renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
+				}
+			}
+			PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
+
+			// --- 게임 UI (ImGui) ---
+			ImGui::Begin("Game Info");
+			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
+			ImGui::Text("Objects: %d", PrimitiveVector.size());
+			if (PrimitiveVector.Player)
+			{
+				EAttribute attr = PrimitiveVector.Player->GetAttribute();
+				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
+				ImGui::Text("Player Attribute: %s", attrText);
+			}
+			ImGui::End();
+			break;
+		}
+		case Screen::EndingMenu:
+		{
+			MenuActions action = DrawEndingMenu(renderer, hWnd);
+			if (action.start)
+			{
+				// 재시작 로직 (MainMenu와 동일)
+				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
+				PrimitiveVector.Player = nullptr;
+				UPlayer* player = new UPlayer();
+				PrimitiveVector.push_back(player);
+				for (int i = 0; i < 20; ++i)
+				{
+					PrimitiveVector.push_back(new UEnemy());
+					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+				}
+				ScreenState = Screen::Running;
+			}
+			if (action.exit)
+				bIsExit = true;
+			break;
+		}
+		}
+
+		// --- 프레임 종료 ---
 		ImGui::Render();
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-		// Swap Buffer
 		renderer.SwapBuffer();
 
-		do
-		{
-			Sleep(0);
-
+		// --- 프레임 속도 조절 ---
+		do {
 			QueryPerformanceCounter(&endTime);
-
-			elapsedTime = (endTime.QuadPart - startTime.QuadPart);
-
-		} while (elapsedTime < targetFrameTime);
-
+			elapsedTime = (double)(endTime.QuadPart - startTime.QuadPart);
+		} while (elapsedTime / frequency.QuadPart < (1.0 / 60.0));
 	}
+
+	// --- 리소스 해제 ---
+	delete cam; // new로 생성했으므로 delete 필요
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
-	//// ?�멸???�요??코드 
-	//renderer.ReleaseVertexBuffer(UBall::vertexBufferSphere);
-
-	// WinMain?�서 ?�성??버퍼 ?�제
 	renderer.ReleaseVertexBuffer(vertexBufferSphere);
 	renderer.ReleaseConstantBuffer();
-
 	renderer.ReleaseShader();
+	renderer.ReleaseUIResource();
 	renderer.Release();
 
+	CoUninitialize();
 	return 0;
 }
