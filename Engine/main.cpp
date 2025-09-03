@@ -45,6 +45,8 @@ HWND hWnd = nullptr;
 #include "InputManager.h"
 
 #include "PlayerData.h"
+#include "FVector.h"
+#include "UCamera.h"
 
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -98,117 +100,6 @@ struct FVertexSimple
 {
 	float x, y, z;
 	float r, g, b, a;
-};
-
-struct FVector
-{
-	float x, y, z;
-	FVector(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z)
-	{
-
-	}
-
-	static float Distance2(const FVector& a, const FVector& b)
-	{
-		float dx = a.x - b.x;
-		float dy = a.y - b.y;
-		float dz = a.z - b.z;
-		return (dx * dx + dy * dy + dz * dz);
-	}
-	float Magnitude()
-	{
-		return  sqrt(x * x + y * y + z * z);
-	}
-	void Normalize()
-	{
-		float len = sqrt(x * x + y * y + z * z);
-		if (len > 1e-6f)
-		{
-			x /= len;
-			y /= len;
-			z /= len;
-		}
-		else
-		{
-			x = y = z = 0.0f;
-		}
-	}
-	inline FVector& operator+=(const FVector& vec)
-	{
-		x += vec.x;
-		y += vec.y;
-		z += vec.z;
-
-		return *this;
-	}
-
-	inline FVector operator+(const FVector& vec) const
-	{
-		return FVector(x + vec.x, y + vec.y, z + vec.z);
-
-	}
-
-	inline FVector& operator-=(const FVector& vec)
-	{
-		x -= vec.x;
-		y -= vec.y;
-		z -= vec.z;
-
-		return *this;
-	}
-
-	inline FVector operator-(const FVector& vec) const
-	{
-		return FVector(x - vec.x, y - vec.y, z - vec.z);
-
-	}
-
-	inline FVector& operator*=(const FVector& vec)
-	{
-		x *= vec.x;
-		y *= vec.y;
-		z *= vec.z;
-
-		return *this;
-	}
-	inline FVector operator*(const FVector& vec) const
-	{
-		return FVector(x * vec.x, y * vec.y, z * vec.z);
-	}
-
-	inline FVector operator*(float scalar) const
-	{
-		return FVector(x * scalar, y * scalar, z * scalar);
-	}
-
-	inline FVector& operator/=(const FVector& vec)
-	{
-		x /= vec.x;
-		y /= vec.y;
-		z /= vec.z;
-
-		return *this;
-	}
-	inline FVector operator/(const FVector& vec) const
-	{
-		float rtnX = (vec.x == 0.0f) ? 0.0f : x / vec.x;
-		float rtnY = (vec.y == 0.0f) ? 0.0f : y / vec.y;
-		float rtnZ = (vec.z == 0.0f) ? 0.0f : z / vec.z;
-
-		return FVector(rtnX, rtnY, rtnZ);
-	}
-
-	inline FVector operator/(float scalar) const
-	{
-		if (scalar == 0)
-		{
-			return FVector(0.0f, 0.0f, 0.0f);
-		}
-		else
-		{
-			return FVector(x / scalar, y / scalar, z / scalar);
-		}
-	}
 };
  
 enum EAttribute
@@ -1589,69 +1480,6 @@ public:
 
 };
 
-class UCamera
-{
-public:
-	static UCamera* Main;
-	FVector Location;
-	float RenderScale = 1.0f;
-	float TargetRenderScale = 1.0f;
-
-	float RefRadius = 0.2f;    // Radius makes RenderScale = 1.0
-	float MinScale = 0.15f;    // Prevent too small
-	float MaxScale = 2.0f;     // Upper limit
-	float SmoothT = 0.2f;      // Lerp value
-
-public:
-	void SetLocation(FVector location)
-	{
-		this->Location = location;
-	}
-
-	void UpdateCamera(UPrimitive* Player)
-	{
-		SetLocation(Player->GetLocation());
-
-		// ?�제 ?�더�??��??�을 목표 ?��??�을 ?�해 ?�진?�으�?조정
-		if (RenderScale != TargetRenderScale)
-		{
-			float playerRadius = std::max(Player->GetRadius(), 0.001f);
-			TargetRenderScale = RefRadius / playerRadius;
-			TargetRenderScale = std::max(MinScale, std::min(MaxScale, TargetRenderScale));
-			RenderScale = SmoothT * TargetRenderScale + (1.0f - SmoothT) * RenderScale;
-
-			if (fabs(RenderScale - TargetRenderScale) < 0.01f)
-			{
-				RenderScale = TargetRenderScale;
-			}
-		}
-	}
-
-	FVector GetCameraSpaceLocation(UPrimitive* Primitive)
-	{
-		return (Primitive->GetLocation() - this->Location) * RenderScale;
-	}
-
-	float GetCameraSpaceRadius(UPrimitive* Primitive)
-	{
-		return Primitive->GetRadius() * RenderScale;
-	}
-
-	static FVector ConvertToWorldSpace(FVector CameraSpaceCoord)
-	{
-		if (Main)
-		{
-			return CameraSpaceCoord / Main->RenderScale + Main->Location;
-		}
-		else
-		{
-			return CameraSpaceCoord; // Fallback
-		}
-	}
-};
-
-UCamera* UCamera::Main = nullptr;
-
 class UBall : public UPrimitive
 {
 public:
@@ -2417,8 +2245,8 @@ public:
 
 		for (int i = 0; i < Size; i++)
 		{
-			FVector renderedLocation = camera->GetCameraSpaceLocation(primitives[i]);
-			float renderedRadius = camera->GetCameraSpaceRadius(primitives[i]);
+			FVector renderedLocation = camera->ConvertToCameraSpaceLocation(primitives[i]->GetLocation());
+			float renderedRadius = camera->ConvertToCameraSpaceRadius(primitives[i]->GetRadius());
 
 			if (IsInRenderArea(renderedLocation, renderedRadius))
 			{
@@ -2751,7 +2579,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector.ProcessGameLogic();
 			if (PrimitiveVector.Player)
 			{
-				cam->UpdateCamera(PrimitiveVector.Player);
+				//cam->UpdateCamera(PrimitiveVector.Player);
 			}
 			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
 			{
@@ -2801,8 +2629,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
 				case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
 				}
-				FVector renderedLocation = cam->GetCameraSpaceLocation(prim);
-				float renderedRadius = cam->GetCameraSpaceRadius(prim);
+				FVector renderedLocation = cam->ConvertToCameraSpaceLocation(prim->GetLocation());
+				float renderedRadius = cam->ConvertToCameraSpaceRadius(prim->GetRadius());
 				// renderer.UpdateConstant(renderedLocation, renderedRadius);
 				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);

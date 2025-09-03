@@ -131,8 +131,10 @@
     <ClCompile Include="ImGui\imgui_tables.cpp" />
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="UCamera.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FVector.h" />
     <ClInclude Include="ImGui\imconfig.h" />
     <ClInclude Include="ImGui\imgui.h" />
     <ClInclude Include="ImGui\imgui_impl_dx11.h" />
@@ -144,6 +146,7 @@
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="PlayerData.h" />
     <ClInclude Include="Sphere.h" />
+    <ClInclude Include="UCamera.h" />
     <ClInclude Include="UIInfo.h" />
   </ItemGroup>
   <ItemGroup>
