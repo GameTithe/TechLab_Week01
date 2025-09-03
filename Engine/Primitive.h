@@ -9,7 +9,8 @@ enum EAttribute
 {
 	WATER, 
 	FIRE,  
-	GRASS  
+	GRASS,
+	NONE
 };
 
 class UPrimitive

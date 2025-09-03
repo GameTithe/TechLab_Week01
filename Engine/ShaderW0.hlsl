@@ -8,6 +8,7 @@ static const float zoom = 0.0004f;
 static const float3 red = float3(0.99, 0.05, 0.01);
 static const float3 green = float3(0.058, 0.933, 0.124);
 static const float3 blue = float3(0.05, 0.411, 0.941);
+static const float3 gray = float3(0.15, 0.15, 0.15);
 
 
  
@@ -90,9 +91,11 @@ float4 mainPS(VS_OUT input) : SV_Target
     if(Attribute == 1)
         color1 = red;
     
-    
     if(Attribute == 2)
         color1 = green;
+    
+    if(Attribute == 3)
+        color1 = gray;
     
     float3 color = color1 * a;
     return float4(color, a);
