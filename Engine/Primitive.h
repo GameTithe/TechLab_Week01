@@ -80,6 +80,8 @@ public:
 	int Score;
 	EAttribute Attribute;
 	FPlayerInfo PlayerInfo;
+	bool bIsKnockedBack = false;
+	std::chrono::steady_clock::time_point knockbackStartTime;
 };
 
 

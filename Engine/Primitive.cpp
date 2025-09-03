@@ -71,21 +71,48 @@ void UPlayer::SetDivide(bool newDivide)
 
 void UPlayer::Movement()
 {
-	extern HWND hWnd; // WinMain??hWnd�??��??�서 참조
+	// 1. 넉백 상태인지 확인합니다.
+	if (bIsKnockedBack)
+	{
+		// 2. 넉백이 시작된 후 5초가 지났는지 확인합니다.
+		auto now = std::chrono::steady_clock::now();
+		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - knockbackStartTime).count();
 
-	POINT mousePos;
-	GetCursorPos(&mousePos); // 마우?�의 ?�크�?좌표�??�음
-	ScreenToClient(hWnd, &mousePos); // ?�크�?좌표�??�로그램 �??��? 좌표�?변??
+		if (elapsedTime >= 3)
+		{
+			// 3. 5초가 지났으면 넉백 상태를 해제하고, 속도를 0으로 초기화합니다.
+			bIsKnockedBack = false;
+			Velocity = FVector(0.0f, 0.0f, 0.0f);
+		}
+		else
+		{
+			// 4. 아직 5초가 안 지났다면, 속도에 따라 미끄러지게 합니다.
+			Location += Velocity;
 
-	RECT clientRect;
-	GetClientRect(hWnd, &clientRect); // ?�로그램 창의 ?�기�??�음
+			// 5. 마찰력을 적용하여 서서히 멈추게 합니다. (0.98은 마찰 계수)
+			Velocity.x *= 0.98f;
+			Velocity.y *= 0.98f;
+		}
+	}
 
-	// �??��? 좌표(e.g., 0~1024)�?게임 ?�드 좌표(-1.0 ~ 1.0)�?변??
-	float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
-	float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
+	// 6. 넉백 상태가 아닐 경우에만 마우스를 따라갑니다.
+	if (!bIsKnockedBack)
+	{
+		extern HWND hWnd;
 
-	Location.x = worldX;
-	Location.y = worldY;
+		POINT mousePos;
+		GetCursorPos(&mousePos);
+		ScreenToClient(hWnd, &mousePos);
+
+		RECT clientRect;
+		GetClientRect(hWnd, &clientRect);
+
+		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
+		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
+
+		Location.x = worldX;
+		Location.y = worldY;
+	}
 }
 
 void UPlayer::AddScore(int amount)
