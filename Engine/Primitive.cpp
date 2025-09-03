@@ -71,18 +71,19 @@ void UPlayer::SetDivide(bool newDivide)
 
 void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector CenterOfMass)
 {
-	const float MouseAccStrength = 0.0025f; // 마우스 힘에 의한 가속도 크기
+	const float MouseAccStrength = 0.003f; // 마우스 힘에 의한 가속도 크기
+	const float KnockedBackAccStrength = 0.0009f; // 넉백 상태에서 마우스 힘에 의한 가속도 크기
 	const float GravityStrength = 0.01f;   // 중력에 의한 가속도 크기
 
 	FVector MouseAcc = MouseWorldLocation - CenterOfMass;
-	if (MouseAcc.Magnitude() < 0.025f)
+	if (MouseAcc.Magnitude() < 0.025f && !bIsKnockedBack)
 	{
 		MouseAcc = FVector(0.0f, 0.0f, 0.0f);
 		Velocity = FVector(0.0f, 0.0f, 0.0f);
 	}
 	else
 	{
-		MouseAcc *= MouseAccStrength;
+		MouseAcc *= bIsKnockedBack ? KnockedBackAccStrength : MouseAccStrength;
 	}
 
 	FVector GravityForce = CenterOfMass - GetLocation();
@@ -91,10 +92,11 @@ void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector Cent
 	FVector GravityAcc = GravityForce * (1.0f / Mass);
 
 	Velocity += MouseAcc + GravityAcc;
-	if (Velocity.Magnitude() > MaxVelocity)
+	float Limit = bIsKnockedBack ? KnockedBackMaxSpeed : MaxSpeed;
+	if (Velocity.Magnitude() > Limit)
 	{
 		Velocity.Normalize();
-		Velocity *= MaxVelocity;
+		Velocity *= MaxSpeed;
 	}
 }
 
@@ -109,62 +111,62 @@ void UPlayer::Movement()
 		if (elapsedTime >= 3)
 		{
 			bIsKnockedBack = false;
-			Velocity = FVector(0.0f, 0.0f, 0.0f);
+			//Velocity = FVector(0.0f, 0.0f, 0.0f);
 		}
 		else
 		{
-			// 위치 업데이트
-			Location += Velocity;
-			// 마찰력
-			Velocity.x *= 0.98f;
-			Velocity.y *= 0.98f;
+			//// 위치 업데이트
+			//Location += Velocity;
+			//// 마찰력
+			//Velocity.x *= 0.98f;
+			//Velocity.y *= 0.98f;
 		}
-		return; // 넉백 상태일 때는 아래의 조작 로직을 실행하지 않음
+		//return; // 넉백 상태일 때는 아래의 조작 로직을 실행하지 않음
 	}
 
 	// ==========================================================
 	// ▼▼▼▼▼ 핵심 수정: 속도 기반 이동 로직 ▼▼▼▼▼
 	// ==========================================================
-	extern HWND hWnd;
+	//extern HWND hWnd;
 
-	POINT mousePos;
-	GetCursorPos(&mousePos);
-	ScreenToClient(hWnd, &mousePos);
+	//POINT mousePos;
+	//GetCursorPos(&mousePos);
+	//ScreenToClient(hWnd, &mousePos);
 
-	RECT clientRect;
-	GetClientRect(hWnd, &clientRect);
+	//RECT clientRect;
+	//GetClientRect(hWnd, &clientRect);
 
-	// 1. 마우스 위치를 '월드 좌표'로 변환합니다.
-	float cameraX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
-	float cameraY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
-	FVector mouseWorldPos = FVector(0.f, 0.f, 0.f);
+	//// 1. 마우스 위치를 '월드 좌표'로 변환합니다.
+	//float cameraX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
+	//float cameraY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
+	//FVector mouseWorldPos = FVector(0.f, 0.f, 0.f);
 
-	if (UCamera::Main)
-	{
-		mouseWorldPos = UCamera::Main->ConvertToWorldSpaceLocation(FVector(cameraX, cameraY, 0.0f));
-	}
+	//if (UCamera::Main)
+	//{
+	//	mouseWorldPos = UCamera::Main->ConvertToWorldSpaceLocation(FVector(cameraX, cameraY, 0.0f));
+	//}
 
-	// 2. 플레이어 위치에서 마우스 월드 위치를 향하는 '방향 벡터'를 구합니다.
-	FVector moveDirection = mouseWorldPos - Location;
-	float dist2 = moveDirection.x * moveDirection.x + moveDirection.y * moveDirection.y;
+	//// 2. 플레이어 위치에서 마우스 월드 위치를 향하는 '방향 벡터'를 구합니다.
+	//FVector moveDirection = mouseWorldPos - Location;
+	//float dist2 = moveDirection.x * moveDirection.x + moveDirection.y * moveDirection.y;
 
-	// 3. 마우스가 플레이어와 매우 가깝지 않을 때만 움직이도록 '데드존'을 설정합니다.
-	if (dist2 > 0.0001f) // 매우 작은 값보다 클 때만
-	{
-		// 방향 벡터를 정규화(길이를 1로 만듦)합니다.
-		float dist = sqrt(dist2);
-		moveDirection.x /= dist;
-		moveDirection.y /= dist;
+	//// 3. 마우스가 플레이어와 매우 가깝지 않을 때만 움직이도록 '데드존'을 설정합니다.
+	//if (dist2 > 0.0001f) // 매우 작은 값보다 클 때만
+	//{
+	//	// 방향 벡터를 정규화(길이를 1로 만듦)합니다.
+	//	float dist = sqrt(dist2);
+	//	moveDirection.x /= dist;
+	//	moveDirection.y /= dist;
 
-		// 4. 이 방향으로 일정한 속도를 설정합니다.
-		const float playerSpeed = 0.015f; // 플레이어 속도. 이 값을 조절해 보세요.
-		Velocity = moveDirection * playerSpeed;
-	}
-	else
-	{
-		// 마우스가 플레이어 위에 있으면 멈추도록 속도를 0으로 설정합니다.
-		Velocity = FVector(0.0f, 0.0f, 0.0f);
-	}
+	//	// 4. 이 방향으로 일정한 속도를 설정합니다.
+	//	const float playerSpeed = 0.015f; // 플레이어 속도. 이 값을 조절해 보세요.
+	//	Velocity = moveDirection * playerSpeed;
+	//}
+	//else
+	//{
+	//	// 마우스가 플레이어 위에 있으면 멈추도록 속도를 0으로 설정합니다.
+	//	Velocity = FVector(0.0f, 0.0f, 0.0f);
+	//}
 
 	// 5. 최종적으로 계산된 속도를 위치에 더해 플레이어를 움직입니다.
 	Location += Velocity;

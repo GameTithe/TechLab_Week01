@@ -81,7 +81,8 @@ public:
 	int Score;
 	EAttribute Attribute;
 	FPlayerInfo PlayerInfo;
-	const float MaxVelocity = 0.03f;
+	const float MaxSpeed = 0.02f;
+	float KnockedBackMaxSpeed;
 	bool bIsKnockedBack = false;
 	std::chrono::steady_clock::time_point knockbackStartTime;
 };

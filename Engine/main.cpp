@@ -441,6 +441,7 @@ public:
 							// 3. 플레이어에게 튕겨나가는 속도를 설정합니다.
 							const float bounceSpeed = 0.03f; // 튕겨나가는 힘 조절
 							Player->SetVelocity(normal * bounceSpeed);
+							Player->KnockedBackMaxSpeed = Player->GetVelocity().Magnitude(); // 넉백 상태에서의 최대 속도 설정
 
 							// 4. 플레이어를 넉백 상태로 만들고, 시작 시간을 기록합니다.
 							Player->bIsKnockedBack = true;
@@ -872,18 +873,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					UPlayer* cell = Controller.PlayerCells[i];
 					if (cell)
 					{
-						// cell->ApplyMouseForceAndGravity(CursorWorldLocation, CenterOfMass);
+						cell->ApplyMouseForceAndGravity(CursorWorldLocation, CenterOfMass);
 						// 현재 Movement() 자체적으로 마우스 인풋 처리 로직 가지고 있어 임시로 주석 처리.
 						// Movement()를 통한 계산은 플레이어 분열시 확장성이 없어 추후 교체.
 					}
 				}
 			}
-			for (int i = 0; i < PrimitiveVector.size(); i++)
-			{
-				PrimitiveVector[i]->Movement();
-			}
-			PrimitiveVector.ProcessGameLogic();
-			// --- 업데이트 로직 ---
 			for (int i = 0; i < PrimitiveVector.size(); i++)
 			{
 				PrimitiveVector[i]->Movement();
