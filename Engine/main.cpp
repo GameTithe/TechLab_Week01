@@ -1267,7 +1267,7 @@ public:
 
 		for (int i = 0; i < Count; ++i)
 		{
-			// NRE ?��?
+			// Prevent NRE
 			UPlayer* Cell = PlayerCells[i];
 			if (!Cell)
 			{
@@ -1279,13 +1279,13 @@ public:
 			CenterY += Location.y * Mass;
 		}
 
-		// Fallback: 질량 ?�이 거의 0??경우 ?�차 방�? 차원?�서 ?�균 ?�치 ?�용
+		// Fallback: if TotalMass is too small, calculate simple average
 		if (TotalMass < 1e-6)
 		{
 			CenterX = CenterY = 0.0f;
 			for (int i = 0; i < Count; ++i)
 			{
-				// NRE ?��?
+				// Prevent NRE
 				UPlayer* Cell = PlayerCells[i];
 				if (!Cell)
 				{
@@ -1304,6 +1304,53 @@ public:
 		return true;
 	}
 
+	// Calculate Move Vector and Call Movement for each Player Cell
+	void Move(const FVector& CursorWorldCoord)
+	{
+		FVector CenterOfMass;
+		if (!TryGetCenterOfMass(CenterOfMass))
+		{
+			return;
+		}
+
+		FVector MoveVector = CursorWorldCoord - CenterOfMass;
+		MoveVector.Normalize();
+
+		for (int i = 0; i < Count; ++i)
+		{
+			UPlayer* Cell = PlayerCells[i];
+			if (!Cell)
+			{
+				continue;
+			}
+			
+	}
+
+	// Enroll New Player Cell to Controller (initialize or split)
+	void Enroll(UPlayer* NewCell)
+	{
+		if (Count < MaxCount)
+		{
+			PlayerCells[Count] = NewCell;
+			++Count;
+		}
+	}
+
+	// Remove Player Cell from Controller (death or merge)
+	void Release(UPlayer* Cell)
+	{
+		for (int i = 0; i < Count; ++i)
+		{
+			if (PlayerCells[i] == Cell)
+			{
+				delete PlayerCells[i];
+				PlayerCells[i] = PlayerCells[Count - 1];
+				PlayerCells[Count - 1] = nullptr;
+				--Count;
+				break;
+			}
+		}
+	}
 };
 struct Merge
 {
