@@ -751,7 +751,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	QueryPerformanceCounter(&CreateStartTime);
 	LARGE_INTEGER startTime, endTime;
 	double elapsedTime = 0.0;
-	double PlayTime = 0.0;
+	
+	// 게임 전용 타이머
+	bool bGameStarted = false;
+	LARGE_INTEGER GameStartTime;
 
 	// --- 메인 루프 ---
 	bool bIsExit = false;
@@ -848,7 +851,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ClientToScreen(hWnd, &center); // 클라이언트 좌표를 화면 전체 좌표로 변환
 				SetCursorPos(center.x, center.y); // 마우스 커서 위치를 설정
 				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
-				PlayTime = ImGui::GetTime();
+				
+				// 게임 타이머 시작
+				QueryPerformanceCounter(&GameStartTime);
+				bGameStarted = true;
 			}
 			if (action.gameover)
 				ScreenState = Screen::EndingMenu;
@@ -923,7 +929,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			
 			ImGuiIO& io = ImGui::GetIO();
 			io.FontGlobalScale = 1.5f;
-			ImGui::Text("Time: %.2f s", ImGui::GetTime() - PlayTime);
+			
+			// 게임 시간 계산 및 표시
+			double currentGameTime = 0.0;
+			if (bGameStarted)
+			{
+				LARGE_INTEGER currentTime;
+				QueryPerformanceCounter(&currentTime);
+				currentGameTime = double(currentTime.QuadPart - GameStartTime.QuadPart) / double(frequency.QuadPart);
+			}
+			ImGui::Text("Time: %.2f s", currentGameTime);
 
 			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 			ImGui::Text("Objects: %d", PrimitiveVector.size());
@@ -934,8 +949,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ImGui::Text("Player Attribute: %s", attrText);
 			}
 
-			//시간제한
-			if(ImGui::GetTime() - PlayTime >= 3.0f)
+			//시간제한 - 게임이 시작되고 3초가 지나면 승리
+			if(bGameStarted && currentGameTime >= 3.0)
 				ScreenState = Screen::VictoryMenu;
 			  
 			ImGui::End();
@@ -979,7 +994,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				enemySpawner.Init();
 				ScreenState = Screen::Running;
-				PlayTime = ImGui::GetTime();
+				QueryPerformanceCounter(&GameStartTime);
+				bGameStarted = true;
 			}
 			if (action.exit)
 				bIsExit = true;
@@ -1023,9 +1039,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ClientToScreen(hWnd, &center);
 				SetCursorPos(center.x, center.y);
 
-				// 7. 게임 상태 변경 및 시간 초기화
+				// 7. 게임 상태 변경 및 시간 초기화 - 새로운 시작 시간으로 리셋
 				ScreenState = Screen::Running;
-				PlayTime = ImGui::GetTime();
+				QueryPerformanceCounter(&GameStartTime);
+				bGameStarted = true;
+			}
+			if (action.menu)
+			{
+				ScreenState = Screen::MainMenu;
+				bGameStarted = false; // 게임 타이머 정지
 			}
 			if (action.exit)
 				bIsExit = true;
