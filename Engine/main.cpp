@@ -4,8 +4,8 @@
 #include <vector>
 #include <chrono>
 
-
-#include <vector>
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
 
 // D3D libraries
 #pragma comment(lib, "user32")
@@ -722,10 +722,65 @@ static Screen ScreenState = Screen::MainMenu;
 
 struct MenuActions { bool start = false; bool exit = false; };
 
+class USoundManager
+{
+private:
+	/** 생성자를 private으로 만들어 외부에서 인스턴스 생성 방지 */
+	USoundManager() = default;
+	~USoundManager() = default;
+
+	/** 복사 생성자와 할당 연산자 삭제 */
+	USoundManager(const USoundManager&) = delete;
+	USoundManager& operator=(const USoundManager&) = delete;
+
+public:
+	/** BGM 재생 (무한 반복) */
+	static void PlayBGM()
+	{
+		PlaySound(TEXT("BGM.wav"), NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
+	}
+
+	/** BGM 중지 */
+	static void StopBGM()
+	{
+		PlaySound(NULL, NULL, SND_PURGE);
+	}
+
+	/** 충돌 사운드 재생 (한 번만) */
+	static void PlayCollideSound()
+	{
+		PlaySound(TEXT("Collide.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	}
+
+	/** 분할 사운드 재생 (한 번만) */
+	static void PlayDivideSound()
+	{
+		PlaySound(TEXT("Divide.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	}
+
+	/** 먹이 섭취 사운드 재생 (한 번만) */
+	static void PlayPreyEatSound()
+	{
+		PlaySound(TEXT("PreyEat.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	}
+
+	/** UI 클릭 사운드 재생 (한 번만) */
+	static void PlayUIClickSound()
+	{
+		PlaySound(TEXT("UIClick.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	}
+
+	/** 모든 사운드 중지 */
+	static void StopAllSounds()
+	{
+		PlaySound(NULL, NULL, SND_PURGE);
+	}
+};
+
+
 MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 {
 	MenuActions MenuAction{};
-
 
 	RECT rect;
 	GetClientRect(hWnd, &rect);
@@ -774,15 +829,18 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
 	{
 		MenuAction.start = true;
+		USoundManager::PlayUIClickSound();
 	}
 	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
 	{
 		MenuAction.exit = true;
+		USoundManager::PlayUIClickSound();
 		//NewController->bIsEnabled = true;
 	}
 
 	return MenuAction;
 }
+
 
 class UPrimitive
 {
@@ -1426,12 +1484,13 @@ public:
 
 	void ProcessGameLogic()
 	{
-		if (Player == nullptr) return; // ?�레?�어가 ?�으�??�무것도 ????
+		/** 플레이어가 없으면 아무것도 하지 않음 */
+		if (Player == nullptr) return;
 
-		// 배열??거꾸�??�회?�야 객체 ?�거 ?�에???�전??
+		/** 배열을 거꾸로 순회해야 객체 삭제 시에도 안전함 */
 		for (int i = Size - 1; i >= 0; --i)
 		{
-			// ?�기 ?�신(?�레?�어)과는 충돌 검?��? ?��? ?�음
+			/** 자기 자신(플레이어)과는 충돌 검사를 하지 않음 */
 			if (primitives[i] == Player)
 			{
 				continue;
@@ -1441,33 +1500,32 @@ public:
 			float dist2 = FVector::Distance2(Player->GetLocation(), other->GetLocation());
 			float minDist = Player->GetRadius() + other->GetRadius();
 
-			// 충돌?�다�?
+			/** 충돌했다면 */
 			if (dist2 < minDist * minDist)
 			{
+				/** 콜리전 발생 시 소리 재생 */
+				// TODO: 나중에 PreyEat랑 구분해야함
+				//USoundManager::PlayCollideSound();
 
 				EAttribute playerAttr = Player->GetAttribute();
 				EAttribute otherAttr = other->GetAttribute();
 
-				if (CheckWin(playerAttr, otherAttr)) // �̰��� ��
-
+				if (CheckWin(playerAttr, otherAttr)) /** 이기는 경우 */
 				{
+					USoundManager::PlayCollideSound();
+
 					Player->AddScore(10);
 					Player->SetRadius(Player->GetRadius() + 0.005f);
-					RemoveAt(i); // ���� ��ü�� ����
+					RemoveAt(i); /** 상대 객체를 제거 */
 				}
-
-				else if (playerAttr != otherAttr) // ���� �� (����� �ʾ��� ��)
+				else if (playerAttr != otherAttr) /** 지는 경우 (비기지 않은 경우) */
 				{
+					USoundManager::PlayPreyEatSound();
+
 					Player->AddScore(-5);
 					Player->SetRadius(Player->GetRadius() - 0.005f);
-					RemoveAt(i); // ���� ��ü�� ����
+					RemoveAt(i); /** 상대 객체를 제거 */
 				}
-
-				// else if (playerAttr == otherAttr) // ����� ��
-				// {
-				//     // �ƹ��͵� ���� ���� (��ü ���� X, ���� ���� X)
-				//     // ���⿡ '��'�ϴ� �Ҹ��� ����ϰų� ȭ�� ���� ȿ���� ������ �����ϴ�.
-				// }
 			}
 		}
 	}
@@ -1760,7 +1818,7 @@ public:
 		Init();
 	}
 
-	/** Base spawn interval in milliseconds */ 
+	/** Base spawn interval in milliseconds */
 
 
 	int BaseSpawnIntervalMs;
@@ -1827,10 +1885,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	RegisterClassW(&wndClass);
 
 	hWnd = CreateWindowExW(0, WindowClass, Title, WS_POPUP | WS_VISIBLE | WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, winWidth, winHeight, nullptr, nullptr, hInstance, nullptr);
+						   CW_USEDEFAULT, CW_USEDEFAULT, winWidth, winHeight, nullptr, nullptr, hInstance, nullptr);
 
 	// --- 초기화 ---
 	srand((unsigned int)time(NULL));
+
+	USoundManager::PlayBGM();
 
 	URenderer renderer;
 	renderer.Create(hWnd);
@@ -1912,7 +1972,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				// 초기 ENEMY와 PREY 생성
 				for (int i = 0; i < 30; ++i)
 				{
-					
 					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
 				}
 
@@ -2007,7 +2066,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		renderer.SwapBuffer();
 
 		// --- 프레임 속도 조절 ---
-		do {
+		do
+		{
 			QueryPerformanceCounter(&endTime);
 			elapsedTime = (double)(endTime.QuadPart - startTime.QuadPart);
 		} while (elapsedTime / frequency.QuadPart < (1.0 / 60.0));
