@@ -672,7 +672,67 @@ enum class Screen { MainMenu, Running, EndingMenu, Count};
 static Screen ScreenState = Screen::MainMenu;
 
 struct MenuActions { bool start = false; bool exit = false;  };
+MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
+{
+	MenuActions MenuAction{};
 
+
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	float winW = (float)(rect.right - rect.left);
+	float winH = (float)(rect.bottom - rect.top);
+	float winSize[2] = { winW, winH }; 
+
+	POINT pt;
+	GetCursorPos(&pt);              // 스크린 좌표계
+	ScreenToClient(hWnd, &pt);      // 윈도우 클라이언트 좌표로 변환
+	int mouseX = pt.x;
+	int mouseY = pt.y;
+	float mousePos[2] = { mouseX, mouseY };
+	 
+
+	// Title UI   
+	float titleRatio[2] = { 0.5f, 0.3f };
+	float targetSize[2] = { 500, 500 };
+	renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
+	renderer.PrepareShaderUI(renderer.UITitleSRV);
+
+	// Start UI 
+	float startRatio[2] = { 0.5f, 0.7f };
+	float startUIOffset[2] = { 50.0f, 100.f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1] };
+
+	UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
+	bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
+	renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
+	renderer.PrepareShaderUI(renderer.UIStartSRV);
+
+
+	// Exit UI 
+	float exitRatio[2] = { 0.5f, 0.8f };
+	float exitUIOffset[2] = { 50.0f, 100.0f };
+	targetSize[0] = 200; targetSize[1] = 200;
+	hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
+
+	UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
+	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
+	renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
+	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
+	// ====== 클릭 처리 ====== 
+	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
+	{
+		MenuAction.start = true;
+	}
+	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
+	{
+		MenuAction.exit = true;
+		//NewController->bIsEnabled = true;
+	}
+
+	return MenuAction; 
+}
 
 class UPrimitive
 {
@@ -1362,65 +1422,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 
 		////////// UI TEST ////////// 
-		RECT rect;
-		GetClientRect(hWnd, &rect);
-		float winW = (float)(rect.right - rect.left);
-		float winH = (float)(rect.bottom - rect.top);
-		float winSize[2] = { winW, winH };
-
-		//UI Title 
-		 
-		POINT pt;
-		GetCursorPos(&pt);              // 스크린 좌표계
-		ScreenToClient(hWnd, &pt);      // 윈도우 클라이언트 좌표로 변환
-		int mouseX = pt.x;
-		int mouseY = pt.y;
-		float mousePos[2] = { mouseX, mouseY };
-
-		// NewController bIsEnabled
-		 
-		// Title UI 
-		if (!bTestEnabled)
+		
+		switch (ScreenState)
 		{
-			float titleRatio[2] = { 0.5f, 0.3f };
-			float targetSize[2] = { 500, 500 };
-			renderer.UpdateConstant(winSize, targetSize, true, titleRatio);
-			renderer.PrepareShaderUI(renderer.UITitleSRV);
-
-			// Start UI 
-			float startRatio[2] = { 0.5f, 0.7f };
-			float startUIOffset[2] = { 50.0f, 100.f };
-			targetSize[0] = 200; targetSize[1] = 200;
-			float hoveringSize[2] = { targetSize[0] - startUIOffset[0], targetSize[1] - startUIOffset[1] };
-
-			UIReact reactStart = MakeRect(winSize, hoveringSize, startRatio);
-			bool startHoverTest = CheckMouseOnUI(reactStart, mouseX, mouseY);
-			renderer.UpdateConstant(winSize, targetSize, startHoverTest, startRatio);
-			renderer.PrepareShaderUI(renderer.UIStartSRV);
-
-
-			// Exit UI 
-			float exitRatio[2] = { 0.5f, 0.8f };
-			float exitUIOffset[2] = { 50.0f, 100.0f };
-			targetSize[0] = 200; targetSize[1] = 200;
-			hoveringSize[0] = targetSize[0] - exitUIOffset[0]; hoveringSize[1] = targetSize[1] - exitUIOffset[1];
-
-			UIReact reactExit = MakeRect(winSize, hoveringSize, exitRatio);
-			bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
-			renderer.UpdateConstant(winSize, targetSize, exitHoverTest, exitRatio);
-			renderer.PrepareShaderUI(renderer.UIExitSRV);
-
-			// ====== 클릭 처리 ====== 
-			if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
-			{
+		case Screen::MainMenu:
+		{
+			MenuActions action = DrawMainMenu(renderer, hWnd);
+			if (action.start)
+				ScreenState = Screen::Running;
+			
+			if (action.exit)
 				bIsExit = true;
-			}
-			if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
-			{
-				bTestEnabled = true;
-				//NewController->bIsEnabled = true;
+			break;
+		}
+		case Screen::Running:
+			break;
 
-			}
+		case Screen::EndingMenu:
+			break;
 		}
 		 
 
