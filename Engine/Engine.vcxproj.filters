@@ -74,15 +74,10 @@
     <ClInclude Include="Sphere.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-<<<<<<< HEAD
-<<<<<<< HEAD
     <ClInclude Include="UIInfo.h">
-=======
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="InputManager.h">
->>>>>>> UI_Branch
-=======
-    <ClInclude Include="InputManager.h">
->>>>>>> UI_Branch
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
