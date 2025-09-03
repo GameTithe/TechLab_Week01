@@ -71,48 +71,77 @@ void UPlayer::SetDivide(bool newDivide)
 
 void UPlayer::Movement()
 {
-	// 1. 넉백 상태인지 확인합니다.
+	// 넉백 상태일 때는 물리 기반으로 미끄러집니다.
 	if (bIsKnockedBack)
 	{
-		// 2. 넉백이 시작된 후 5초가 지났는지 확인합니다.
 		auto now = std::chrono::steady_clock::now();
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - knockbackStartTime).count();
 
-		if (elapsedTime >= 3)
+		if (elapsedTime >= 5)
 		{
-			// 3. 5초가 지났으면 넉백 상태를 해제하고, 속도를 0으로 초기화합니다.
 			bIsKnockedBack = false;
 			Velocity = FVector(0.0f, 0.0f, 0.0f);
 		}
 		else
 		{
-			// 4. 아직 5초가 안 지났다면, 속도에 따라 미끄러지게 합니다.
+			// 위치 업데이트
 			Location += Velocity;
-
-			// 5. 마찰력을 적용하여 서서히 멈추게 합니다. (0.98은 마찰 계수)
+			// 마찰력
 			Velocity.x *= 0.98f;
 			Velocity.y *= 0.98f;
 		}
+		return; // 넉백 상태일 때는 아래의 조작 로직을 실행하지 않음
 	}
 
-	// 6. 넉백 상태가 아닐 경우에만 마우스를 따라갑니다.
-	if (!bIsKnockedBack)
+	// ==========================================================
+	// ▼▼▼▼▼ 핵심 수정: 속도 기반 이동 로직 ▼▼▼▼▼
+	// ==========================================================
+	extern HWND hWnd;
+
+	POINT mousePos;
+	GetCursorPos(&mousePos);
+	ScreenToClient(hWnd, &mousePos);
+
+	RECT clientRect;
+	GetClientRect(hWnd, &clientRect);
+
+	// 1. 마우스 위치를 '월드 좌표'로 변환합니다.
+	float cameraX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
+	float cameraY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
+	FVector mouseWorldPos = FVector(0.f, 0.f, 0.f);
+
+	if (UCamera::Main)
 	{
-		extern HWND hWnd;
-
-		POINT mousePos;
-		GetCursorPos(&mousePos);
-		ScreenToClient(hWnd, &mousePos);
-
-		RECT clientRect;
-		GetClientRect(hWnd, &clientRect);
-
-		float worldX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
-		float worldY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
-
-		Location.x = worldX;
-		Location.y = worldY;
+		mouseWorldPos = UCamera::ConvertToWorldSpaceLocation(FVector(cameraX, cameraY, 0.0f));
 	}
+
+	// 2. 플레이어 위치에서 마우스 월드 위치를 향하는 '방향 벡터'를 구합니다.
+	FVector moveDirection = mouseWorldPos - Location;
+	float dist2 = moveDirection.x * moveDirection.x + moveDirection.y * moveDirection.y;
+
+	// 3. 마우스가 플레이어와 매우 가깝지 않을 때만 움직이도록 '데드존'을 설정합니다.
+	if (dist2 > 0.0001f) // 매우 작은 값보다 클 때만
+	{
+		// 방향 벡터를 정규화(길이를 1로 만듦)합니다.
+		float dist = sqrt(dist2);
+		moveDirection.x /= dist;
+		moveDirection.y /= dist;
+
+		// 4. 이 방향으로 일정한 속도를 설정합니다.
+		const float playerSpeed = 0.015f; // 플레이어 속도. 이 값을 조절해 보세요.
+		Velocity = moveDirection * playerSpeed;
+	}
+	else
+	{
+		// 마우스가 플레이어 위에 있으면 멈추도록 속도를 0으로 설정합니다.
+		Velocity = FVector(0.0f, 0.0f, 0.0f);
+	}
+
+	// 5. 최종적으로 계산된 속도를 위치에 더해 플레이어를 움직입니다.
+	Location += Velocity;
+	// ==========================================================
+	// ▲▲▲▲▲ 핵심 수정 끝 ▲▲▲▲▲
+	// ==========================================================
 }
 
 void UPlayer::AddScore(int amount)
@@ -230,7 +259,6 @@ FVector UEnemy::GetRandomLocationOusideScreen()
 		Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
 		Vector.z = 0.0f;
 	}
-
 	while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
 		   (Vector.y >= -1.0f && Vector.y <= 1.0f));
 

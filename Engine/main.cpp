@@ -771,8 +771,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	FPrimitiveVector PrimitiveVector;
 	UController Controller(10); // 최대 10개의 플레이어 셀을 제어할 수 있는 컨트롤러
 	UCamera* Cam = new UCamera();
-	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
-	UEnemySpawner preySpawner(1000, 500);  // 1.0초 ~ 1.5초마다 먹이 생성을 위한 타이머
+	UCamera::Main = Cam;
+	UEnemySpawner enemySpawner(20, 10); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
+	UEnemySpawner preySpawner(10, 5);  // 1.0초 ~ 1.5초마다 먹이 생성을 위한 타이머
 
 	// --- 타이머 설정 ---
 	LARGE_INTEGER frequency;
@@ -849,6 +850,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				enemySpawner.Init(); // ★★ 추가: ENEMY 타이머 초기화
 				preySpawner.Init();  // ★★ 추가: PREY 타이머 초기화
+				RECT rect;
+				GetClientRect(hWnd, &rect); // 윈도우의 클라이언트 영역 크기를 가져옴
+				POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
+				ClientToScreen(hWnd, &center); // 클라이언트 좌표를 화면 전체 좌표로 변환
+				SetCursorPos(center.x, center.y); // 마우스 커서 위치를 설정
 				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
 			}
 			if (action.gameover)
@@ -873,7 +879,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			// PREY 타이머 확인 및 생성
 			if (now >= preySpawner.nextSpawn)
 			{
-				if (PrimitiveVector.size() < 100)
+				if (PrimitiveVector.size() < 1000)
 				{
 					// 1. Prey를 만들고
 					UPrey* newPrey = new UPrey();
@@ -885,12 +891,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				preySpawner.Init(); // PREY 타이머 리셋
 			}
-			// --- 업데이트 로직 ---
-			for (int i = 0; i < PrimitiveVector.size(); i++)
-			{
-				PrimitiveVector[i]->Movement();
-			}
-			PrimitiveVector.ProcessGameLogic();
 			if (Controller.Count > 0)
 			{
 				FVector CenterOfMass;
@@ -903,6 +903,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				//cam->UpdateCamera(PrimitiveVector.Player);
 			}
+			// --- 업데이트 로직 ---
+			for (int i = 0; i < PrimitiveVector.size(); i++)
+			{
+				PrimitiveVector[i]->Movement();
+			}
+			PrimitiveVector.ProcessGameLogic();
+
+			
 			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
 			{
 				ScreenState = Screen::EndingMenu;
