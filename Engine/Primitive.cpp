@@ -70,36 +70,17 @@ void UPlayer::SetDivide(bool newDivide)
 }
 
 void UPlayer::Movement()
-{	
-	extern HWND hWnd;
+{
 	// 넉백 상태일 때는 물리 기반으로 미끄러집니다.
 	if (bIsKnockedBack)
 	{
 		auto now = std::chrono::steady_clock::now();
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - knockbackStartTime).count();
 
-		if (elapsedTime >= 1)
+		if (elapsedTime >= 3)
 		{
 			bIsKnockedBack = false;
 			Velocity = FVector(0.0f, 0.0f, 0.0f);
-			if (UCamera::Main)
-			{
-				// 1. 플레이어의 현재 월드 위치를 카메라 공간(-1 ~ 1) 좌표로 변환합니다.
-				FVector cameraSpacePos = UCamera::Main->ConvertToCameraSpaceLocation(Location);
-
-				// 2. 카메라 공간 좌표를 윈도우 클라이언트 좌표(0~너비/높이)로 변환합니다.
-				RECT rect;
-				GetClientRect(hWnd, &rect);
-				float screenX = (cameraSpacePos.x + 1.0f) * 0.5f * (rect.right - rect.left);
-				float screenY = (-cameraSpacePos.y + 1.0f) * 0.5f * (rect.bottom - rect.top);
-
-				// 3. 클라이언트 좌표를 전체 화면 좌표로 변환합니다.
-				POINT screenPos = { (LONG)screenX, (LONG)screenY };
-				ClientToScreen(hWnd, &screenPos);
-
-				// 4. 변환된 위치로 마우스 커서를 이동시킵니다.
-				SetCursorPos(screenPos.x, screenPos.y);
-			}
 		}
 		else
 		{
@@ -111,6 +92,11 @@ void UPlayer::Movement()
 		}
 		return; // 넉백 상태일 때는 아래의 조작 로직을 실행하지 않음
 	}
+
+	// ==========================================================
+	// ▼▼▼▼▼ 핵심 수정: 속도 기반 이동 로직 ▼▼▼▼▼
+	// ==========================================================
+	extern HWND hWnd;
 
 	POINT mousePos;
 	GetCursorPos(&mousePos);
@@ -153,6 +139,9 @@ void UPlayer::Movement()
 
 	// 5. 최종적으로 계산된 속도를 위치에 더해 플레이어를 움직입니다.
 	Location += Velocity;
+	// ==========================================================
+	// ▲▲▲▲▲ 핵심 수정 끝 ▲▲▲▲▲
+	// ==========================================================
 }
 
 void UPlayer::AddScore(int amount)
@@ -172,26 +161,34 @@ void UPlayer::SetRadius(float newRadius)
 	Mass = Radius * 10.0f;
 }
 
+FVector GetRandomLocationOusideScreen()
+{
+	FVector Vector;
+	do
+	{
+		Vector.x = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
+		Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
+		Vector.z = 0.0f;
+	} while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
+			(Vector.y >= -1.0f && Vector.y <= 1.0f));
+
+	return Vector;
+}
+
+FVector GetRandomNoiseVector(float Intensity)
+{
+	return FVector((rand() / (float)RAND_MAX) * Intensity, (rand() / (float)RAND_MAX) * Intensity, 0.0f);
+}
+
 // UEnemy 클래스 구현
 UEnemy::UEnemy()
 {
 	Attribute = (EAttribute)(rand() % 3);
-	Location = GetRandomLocationOusideScreen();
+	FVector RandomLocationOusideScreen = GetRandomLocationOusideScreen();
+	Location = RandomLocationOusideScreen * UCamera::Main->RenderScale + UCamera::Main->Location;
 
 	const float enemySpeed = 0.001f;
-	Velocity.x = (float)(rand() % 100 - 50) * enemySpeed;
-	Velocity.y = (float)(rand() % 100 - 50) * enemySpeed;
-
-	// TODO: Change FVector Instead Cam Location'
-	if (UCamera::Main != nullptr)
-	{
-		FVector TargetLocation = UCamera::Main->Location + GetRandomNoiseVector(0.5f);
-		Velocity = (TargetLocation - Location) * enemySpeed * 10;
-	}
-	else
-	{
-		Velocity = (FVector(0, 0, 0) - Location) * enemySpeed * 10;
-	}
+	Velocity = (GetRandomNoiseVector(0.5f) - RandomLocationOusideScreen) * enemySpeed * 10;
 
 	Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;
 	Mass = Radius * 10.0f;
@@ -261,33 +258,14 @@ void UEnemy::Movement()
 	}*/
 }
 
-FVector UEnemy::GetRandomLocationOusideScreen()
-{
-	FVector Vector;
-	do
-	{
-		Vector.x = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
-		Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
-		Vector.z = 0.0f;
-	}
-	while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
-		   (Vector.y >= -1.0f && Vector.y <= 1.0f));
-
-	return Vector;
-}
-
-FVector UEnemy::GetRandomNoiseVector(float Intensity)
-{
-	return FVector((rand() / (float)RAND_MAX) * Intensity, (rand() / (float)RAND_MAX) * Intensity, 0.0f);
-}
-
 // UPrey 클래스 구현
 UPrey::UPrey()
 {
-	// 무작???�성, ?�치, ?�기 ?�정
 	Attribute = EAttribute::NONE;
-	Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�직이지 ?�으므�??�도??0
-	Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
+	Velocity = FVector(0.0f, 0.0f, 0.0f);
+	// Radius 가져다 써도 됨
+	Location = GetRandomLocationOusideScreen() * UCamera::Main->RenderScale + UCamera::Main->Location;
+	Radius = ((rand() / (float)RAND_MAX)) * 0.01f + 0.02f;
 	Mass = Radius * 10.0f;
 	ExpirationTime = std::chrono::steady_clock::now() + std::chrono::seconds(15);
 }

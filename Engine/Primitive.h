@@ -85,6 +85,8 @@ public:
 	std::chrono::steady_clock::time_point knockbackStartTime;
 };
 
+FVector GetRandomLocationOusideScreen();
+FVector GetRandomNoiseVector(float Intensity);
 
 class UEnemy : public UPrimitive
 {
@@ -108,10 +110,6 @@ public:
 
 	// ENEMY???�직임: 기존 UBall처럼 벽에 ?��?
 	virtual void Movement() override;
-
-	FVector GetRandomLocationOusideScreen();
-
-	FVector GetRandomNoiseVector(float Intensity);
 
 public:
 	FVector Location;

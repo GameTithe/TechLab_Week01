@@ -278,11 +278,11 @@ public:
 	}
 	~FPrimitiveVector()
 	{
-		for (int i = 0; i < Size; i++)
-		{
-			delete primitives[i];
-		}
-		delete[] primitives;
+		//for (int i = 0; i < Size; i++)
+		//{
+		//	delete primitives[i];
+		//}
+		//delete[] primitives;
 	}
 
 	void push_back(UPrimitive* primitive)
@@ -394,8 +394,15 @@ public:
 
 				EAttribute playerAttr = Player->GetAttribute();
 				EAttribute otherAttr = other->GetAttribute();
+				if (otherAttr == EAttribute::NONE) /** 먹이인 경우*/
+				{
+					USoundManager::PreyEat();
 
-				if (CheckWin(playerAttr, otherAttr)) /** 이기는 경우 */
+					Player->AddScore(10);
+					Player->SetRadius(Player->GetRadius() + 0.005f);
+					RemoveAt(i); /** 상대 객체를 제거 */
+				}
+				else if (CheckWin(playerAttr, otherAttr)) /** 이기는 경우 */
 				{
 					USoundManager::Collide();
 
@@ -445,11 +452,6 @@ public:
 
 							USoundManager::Collide();
 						}
-					}
-					else
-					{
-						// 적이 아니라면 (즉, 먹이라면) 이전처럼 그냥 제거(흡수)합니다.
-						RemoveAt(i);
 					}
 				}
 			}
@@ -603,45 +605,6 @@ public:
 			Size--;
 		}
 	}
-	FVector FindSafeSpawnLocation(float objectRadius)
-	{
-		FVector spawnLocation;
-		bool isSafe = false;
-		int maxAttempts = 50; // 위치를 찾기 위해 최대 50번 시도
-
-		for (int attempt = 0; attempt < maxAttempts; ++attempt)
-		{
-			// 1. 화면 안쪽(-1.0 ~ 1.0)에 랜덤 위치 생성
-			spawnLocation.x = (rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-			spawnLocation.y = (rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-			spawnLocation.z = 0.0f;
-
-			isSafe = true;
-
-			// 2. 현재 존재하는 모든 객체와 겹치는지 검사
-			for (int i = 0; i < Size; ++i)
-			{
-				if (primitives[i] == nullptr) continue;
-
-				float dist2 = FVector::Distance2(spawnLocation, primitives[i]->GetLocation());
-				float minDist = objectRadius + primitives[i]->GetRadius();
-
-				if (dist2 < minDist * minDist) // 겹쳤다면
-				{
-					isSafe = false; // 안전하지 않음
-					break;          // 다음 시도로 넘어감
-				}
-			}
-
-			if (isSafe) // 안전한 위치를 찾았다면
-			{
-				return spawnLocation;
-			}
-		}
-
-		// 50번 시도해도 못 찾았다면, 그냥 마지막 위치를 반환 (게임이 멈추는 것을 방지)
-		return spawnLocation;
-	}
 
 public:
 
@@ -693,7 +656,7 @@ public:
 		{
 			if (PrimitiveVector->size() < 100)
 			{
-				if (rand() % 5 < 4)
+				if (rand() % 5 < 3)
 				{
 					// ENEMY는 계속 움직이므로 겹쳐도 괜찮습니다.
 					PrimitiveVector->push_back(new UEnemy());
@@ -701,10 +664,7 @@ public:
 				else
 				{
 					// PREY는 겹치지 않도록 안전한 위치를 찾아 생성합니다.
-					UPrey* newPrey = new UPrey();
-					FVector safeLocation = PrimitiveVector->FindSafeSpawnLocation(newPrey->GetRadius());
-					newPrey->SetLocation(safeLocation);
-					PrimitiveVector->push_back(newPrey);
+					PrimitiveVector->push_back(new UPrey());
 				}
 			}
 
@@ -766,8 +726,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UController Controller(10); // 최대 10개의 플레이어 셀을 제어할 수 있는 컨트롤러
 	UCamera* Cam = new UCamera();
 	UCamera::Main = Cam;
-	UEnemySpawner enemySpawner(20, 10); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
-	UEnemySpawner preySpawner(10, 5);  // 1.0초 ~ 1.5초마다 먹이 생성을 위한 타이머
+	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
 
 	// --- 타이머 설정 ---
 	LARGE_INTEGER frequency;
@@ -804,6 +763,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
 
+		// Tick
+		enemySpawner.Tick(&PrimitiveVector);
 		
 		// --- 렌더링 로직 ---
 		renderer.PrepareUnitShader();
@@ -815,13 +776,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			UPrimitive* prim = PrimitiveVector[idx];
 			if (prim != nullptr)
 			{
-				FVector objectColor;
-				switch (prim->GetAttribute())
-				{
-				case FIRE:  objectColor = FVector(1.0f, 0.2f, 0.2f); break;
-				case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
-				case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
-				}
 				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
 				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
 				// renderer.UpdateConstant(renderedLocation, renderedRadius);
@@ -859,14 +813,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				{
 					if (i % 2 == 0) {
 						UPrey* newPrey = new UPrey();
-						// 안전한 위치를 찾아서 설정
-						FVector safeLocation = PrimitiveVector.FindSafeSpawnLocation(newPrey->GetRadius());
-						newPrey->SetLocation(safeLocation);
 						PrimitiveVector.push_back(newPrey);
 					}
 				}
 				enemySpawner.Init(); // ★★ 추가: ENEMY 타이머 초기화
-				preySpawner.Init();  // ★★ 추가: PREY 타이머 초기화
 				RECT rect;
 				GetClientRect(hWnd, &rect); // 윈도우의 클라이언트 영역 크기를 가져옴
 				POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
@@ -898,21 +848,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				enemySpawner.Init(); // ENEMY 타이머 리셋
 			}
 
-			// PREY 타이머 확인 및 생성
-			if (now >= preySpawner.nextSpawn)
-			{
-				if (PrimitiveVector.size() < 1000)
-				{
-					// 1. Prey를 만들고
-					UPrey* newPrey = new UPrey();
-					// 2. 안전한 위치를 찾아서
-					FVector safeLocation = PrimitiveVector.FindSafeSpawnLocation(newPrey->GetRadius());
-					// 3. 위치를 설정한 뒤에 게임에 추가합니다.
-					newPrey->SetLocation(safeLocation);
-					PrimitiveVector.push_back(newPrey);
-				}
-				preySpawner.Init(); // PREY 타이머 리셋
-			}
 			if (Controller.Count > 0)
 			{
 				// 카메라 업데이트
@@ -937,7 +872,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			{
 				ScreenState = Screen::EndingMenu;
 			}
-
 
 			// --- 게임 UI (ImGui) ---
 			ImGui::Begin("Game Info");
@@ -979,8 +913,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					PrimitiveVector.push_back(new UEnemy());
 					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
 				}
-				enemySpawner.Init(); // ★★ 추가: ENEMY 타이머 초기화
-				preySpawner.Init();  // ★★ 추가: PREY 타이머 초기화
+				enemySpawner.Init();
 				ScreenState = Screen::Running;
 			}
 			if (action.exit)
