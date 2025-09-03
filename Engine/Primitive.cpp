@@ -274,7 +274,7 @@ FVector UEnemy::GetRandomNoiseVector(float Intensity)
 UPrey::UPrey()
 {
 	// 무작???�성, ?�치, ?�기 ?�정
-	Attribute = (EAttribute)(rand() % 3);
+	Attribute = EAttribute::NONE;
 	Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�직이지 ?�으므�??�도??0
 	Radius = ((rand() / (float)RAND_MAX)) * 0.05f + 0.02f;
 	Mass = Radius * 10.0f;
