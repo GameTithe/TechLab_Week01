@@ -17,7 +17,7 @@ public:
     float RefRadius = 0.2f;   // 이 반지름일 때 RenderScale=1.0이 되도록 자동 스케일링
     float MinScale = 0.15f;  // 스케일 하한
     float MaxScale = 2.0f;   // 스케일 상한
-    float SmoothT = 0.2f;   // Lerp 비율(0~1)
+    float SmoothT = 0.5f;   // Lerp 비율(0~1)
 
 public:
     // 위치 설정

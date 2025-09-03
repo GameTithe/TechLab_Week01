@@ -421,35 +421,33 @@ public:
 					UEnemy* enemy = dynamic_cast<UEnemy*>(other);
 					if (enemy != nullptr)
 					{
-						// ===== [수정] 플레이어 넉백 로직 시작 ====================
-						// 이전에 Player 객체에 직접 접근했던 것을 Player 포인터를 통해 접근합니다.
-
-						// 1. 적(Enemy)은 아무런 영향을 받지 않습니다. (속도 변경 코드 없음)
-
-						// 2. 플레이어가 튕겨나갈 방향(충돌 법선 벡터)을 계산합니다.
-						FVector normal = Player->GetLocation() - other->GetLocation();
-						float dist = sqrt(dist2);
-						if (dist > 1e-6)
+						if (Player->bIsKnockedBack == false) // 플레이어가 넉백 상태가 아닐 때만 아래 코드를 실행
 						{
-							normal.x /= dist;
-							normal.y /= dist;
+							// 1. 적(Enemy)은 아무런 영향을 받지 않습니다. (속도 변경 코드 없음)
+
+							// 2. 플레이어가 튕겨나갈 방향(충돌 법선 벡터)을 계산합니다.
+							FVector normal = Player->GetLocation() - other->GetLocation();
+							float dist = sqrt(dist2);
+							if (dist > 1e-6)
+							{
+								normal.x /= dist;
+								normal.y /= dist;
+							}
+
+							// 3. 플레이어에게 튕겨나가는 속도를 설정합니다.
+							const float bounceSpeed = 0.03f; // 튕겨나가는 힘 조절
+							Player->SetVelocity(normal * bounceSpeed);
+
+							// 4. 플레이어를 넉백 상태로 만들고, 시작 시간을 기록합니다.
+							Player->bIsKnockedBack = true;
+							Player->knockbackStartTime = std::chrono::steady_clock::now();
+
+							// 5. 객체 겹침 문제를 해결합니다.
+							float overlap = 0.5f * (minDist - dist);
+							Player->SetLocation(Player->GetLocation() + normal * overlap);
+
+							USoundManager::Collide();
 						}
-
-						// 3. 플레이어에게 튕겨나가는 속도를 설정합니다.
-						const float bounceSpeed = 0.03f; // 튕겨나가는 힘 조절
-						Player->SetVelocity(normal * bounceSpeed);
-
-						// 4. 플레이어를 넉백 상태로 만들고, 시작 시간을 기록합니다.
-						Player->bIsKnockedBack = true;
-						Player->knockbackStartTime = std::chrono::steady_clock::now();
-
-						// 5. 객체 겹침 문제를 해결합니다.
-						float overlap = 0.5f * (minDist - dist);
-						Player->SetLocation(Player->GetLocation() + normal * overlap);
-
-						USoundManager::Collide();
-
-						// ===== [수정] 플레이어 넉백 로직 끝 ======================
 					}
 					else
 					{

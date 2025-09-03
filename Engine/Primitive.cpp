@@ -77,7 +77,7 @@ void UPlayer::Movement()
 		auto now = std::chrono::steady_clock::now();
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - knockbackStartTime).count();
 
-		if (elapsedTime >= 5)
+		if (elapsedTime >= 3)
 		{
 			bIsKnockedBack = false;
 			Velocity = FVector(0.0f, 0.0f, 0.0f);
