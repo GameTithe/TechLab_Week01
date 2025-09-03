@@ -8,4 +8,5 @@ struct FPlayerInfo
 	int att;
 	float resolution[2];
 	float iTime;
+	float velocity[2];
 };

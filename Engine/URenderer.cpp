@@ -458,7 +458,7 @@ void URenderer::UpdateConstant(FVector Offset, float Scale)
 	}
 }
 
-void URenderer::UpdateUnitConstant(int attribute, float time, FVector Offset, float Scale)
+void URenderer::UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale)
 {
 	if (ConstantBuffer)
 	{
@@ -485,6 +485,9 @@ void URenderer::UpdateUnitConstant(int attribute, float time, FVector Offset, fl
 		constants->att = attribute;
 		memcpy(constants->resolution, resolution, sizeof(float) * 2);
 		constants->iTime = time;
+
+		constants->velocity[0] = velocity.x;
+		constants->velocity[1] = velocity.y; 
 
 		DeviceContext->Unmap(ConstantUnitBuffer, 0);
 

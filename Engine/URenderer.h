@@ -133,7 +133,7 @@ public:
 
 	void UpdateConstant(FVector Offset, float Scale);
 
-	void UpdateUnitConstant(int attribute, float time, FVector Offset, float Scale);
+	void UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale);
 
 	void UpdateUIConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2]);
 };

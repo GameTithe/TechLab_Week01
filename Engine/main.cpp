@@ -399,7 +399,10 @@ public:
 					USoundManager::PreyEat();
 
 					Player->AddScore(10);
-					Player->SetRadius(Player->GetRadius() + 0.005f);
+					float playerRadius = Player->GetRadius();
+					float otherRadius = other->GetRadius();
+					float newRadius = sqrt(playerRadius * playerRadius + otherRadius * otherRadius);
+					Player->SetRadius(newRadius);
 					RemoveAt(i); /** 상대 객체를 제거 */
 				}
 				else if (CheckWin(playerAttr, otherAttr)) /** 이기는 경우 */
@@ -780,7 +783,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
 				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
 				// renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(prim->GetVelocity(), prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
