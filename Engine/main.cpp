@@ -1399,6 +1399,29 @@ public:
 			}
 		}
 	}
+
+	// 무게중심을 기준으로 플레이어 전체 군집을 감싸는 원의 최소 반지름
+	float GetPlayerSwarmRadius()
+	{
+		FVector COM; // Center Of Mass
+		if (!TryGetCenterOfMass(COM))
+		{
+			return 0.0f; // Default spawn radius
+		}
+
+		float MaxRadius = 0.0f;
+		for (int i = 0; i < Count; ++i)
+		{
+			UPlayer* Cell = PlayerCells[i];
+			if (!Cell)
+			{
+				continue;
+			}
+			float Dist = sqrt(FVector::Distance2(COM, Cell->GetLocation())) + Cell->GetRadius();
+			MaxRadius = Dist > MaxRadius ? Dist : MaxRadius;
+		}
+		return MaxRadius;
+	}
 };
 struct Merge
 {
@@ -1874,7 +1897,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
 	FPrimitiveVector PrimitiveVector;
-	UCamera* cam = new UCamera();
+	UController Controller(10); // 최대 10개의 플레이어 셀을 제어할 수 있는 컨트롤러
+	UCamera* Cam = new UCamera();
 	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
 	UEnemySpawner preySpawner(1000, 500);  // 1.0초 ~ 1.5초마다 먹이 생성을 위한 타이머
 
@@ -1958,6 +1982,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				// 플레이어 생성 및 추가
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
+				Controller.Enroll(player); // 컨트롤러에 플레이어 셀 등록
 
 				// 초기 ENEMY와 PREY 생성
 				for (int i = 0; i < 30; ++i)
@@ -2014,8 +2039,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				PrimitiveVector[i]->Movement();
 			}
 			PrimitiveVector.ProcessGameLogic();
-			if (PrimitiveVector.Player)
+			if (Controller.Count > 0)
 			{
+				FVector CenterOfMass;
+				if (Controller.TryGetCenterOfMass(CenterOfMass))
+				{
+					const float ReferenceRadius = 0.08f;
+					float SwarmRadius = Controller.GetPlayerSwarmRadius();
+					float DesiredScale = ReferenceRadius / SwarmRadius;
+					Cam->UpdateCamera(CenterOfMass, DesiredScale);
+				}
 				//cam->UpdateCamera(PrimitiveVector.Player);
 			}
 			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
@@ -2052,7 +2085,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			// --- 렌더링 로직 ---
 		renderer.PrepareShader();
 		std::vector<int> visiblePrimitives, invisiblePrimitives;
-		PrimitiveVector.ClassifyBorder(cam, visiblePrimitives, invisiblePrimitives);
+		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
 
 		for (int idx : visiblePrimitives)
 		{
@@ -2066,8 +2099,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				case WATER: objectColor = FVector(0.2f, 0.5f, 1.0f); break;
 				case GRASS: objectColor = FVector(0.2f, 1.0f, 0.3f); break;
 				}
-				FVector renderedLocation = cam->ConvertToCameraSpaceLocation(prim->GetLocation());
-				float renderedRadius = cam->ConvertToCameraSpaceRadius(prim->GetRadius());
+				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
+				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
 				// renderer.UpdateConstant(renderedLocation, renderedRadius);
 				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
@@ -2106,7 +2139,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 
 	// --- 리소스 해제 ---
-	delete cam; // new로 생성했으므로 delete 필요
+	delete Cam; // new로 생성했으므로 delete 필요
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
