@@ -848,6 +848,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				preySpawner.Init(); // PREY 타이머 리셋
 			}
 			// --- 업데이트 로직 ---
+
+			// 마우스 인풋 처리
+			FVector CenterOfMass, CursorWorldLocation;
+			if (Controller.TryGetCenterOfMass(CenterOfMass))
+			{
+				float normalizedX, normalizedY;
+				InputManager::Input().GetNormalizedMousePos(normalizedX, normalizedY);
+				CursorWorldLocation = Cam->ConvertToWorldSpaceLocation(FVector(normalizedX, normalizedY, 0.0f));
+				for (int i = 0; i < Controller.Count; ++i)
+				{
+					UPlayer* cell = Controller.PlayerCells[i];
+					if (cell)
+					{
+						//TODO: CenterOfMass와 CursorWorldLocation을 이용해 이동 입력 처리
+					}
+				}
+			}
 			for (int i = 0; i < PrimitiveVector.size(); i++)
 			{
 				PrimitiveVector[i]->Movement();
@@ -855,6 +872,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector.ProcessGameLogic();
 			if (Controller.Count > 0)
 			{
+				// 카메라 업데이트
 				FVector CenterOfMass;
 				if (Controller.TryGetCenterOfMass(CenterOfMass))
 				{
@@ -863,7 +881,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					float DesiredScale = ReferenceRadius / SwarmRadius;
 					Cam->UpdateCamera(CenterOfMass, DesiredScale);
 				}
-				//cam->UpdateCamera(PrimitiveVector.Player);
 			}
 			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
 			{
