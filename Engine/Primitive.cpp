@@ -92,11 +92,20 @@ void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector Cent
 	FVector GravityAcc = GravityForce * (1.0f / Mass);
 
 	Velocity += MouseAcc + GravityAcc;
-	float Limit = bIsKnockedBack ? KnockedBackMaxSpeed : MaxSpeed;
-	if (Velocity.Magnitude() > Limit)
+	float baseLimit = bIsKnockedBack ? KnockedBackMaxSpeed : MaxSpeed;
+	float dynamicLimit = baseLimit;
+
+	// 2. 카메라 줌 레벨에 따라 최대 속도를 보정합니다.
+	if (UCamera::Main && UCamera::Main->RenderScale > 0.01f)
+	{
+		dynamicLimit = baseLimit / UCamera::Main->RenderScale;
+	}
+
+	// 3. 보정된 '동적' 최대 속도를 적용하여 속도를 제한합니다.
+	if (Velocity.Magnitude() > dynamicLimit)
 	{
 		Velocity.Normalize();
-		Velocity *= MaxSpeed;
+		Velocity *= dynamicLimit;
 	}
 }
 
