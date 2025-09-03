@@ -734,10 +734,7 @@ MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd)
 
 	return MenuAction; 
 }
-
-MenuActions DrawRunningMenu(URenderer& renderer, HWND hWnd)
-{
-}
+ 
 class UPrimitive
 {
 public:
