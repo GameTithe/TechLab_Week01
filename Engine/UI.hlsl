@@ -1,7 +1,7 @@
  
 cbuffer UI_PerDraw : register(b0)
 {
-    float2 WindowSize;
+    float2 WindowSize; 
     int IsHovering;
     float Padding;
 };
@@ -28,7 +28,7 @@ PS_INPUT mainVS(VS_INPUT input)
     PS_INPUT output;
     
     // [-1.0f , 1.0f] 
-    float2 ndc = float2(
+    float2 ndc = float2(        
      ((input.position.x / WindowSize.x) - 0.5f) * 2.0f,
      -((input.position.y / WindowSize.y) - 0.5f) * 2.0f
     );
@@ -47,7 +47,7 @@ float4 mainPS(PS_INPUT input) : SV_Target
       
     if (IsHovering == 1)
     {
-        tex0.rgb *= 1.5;
+        tex0.rgb *= 1.5; 
     }
     
     

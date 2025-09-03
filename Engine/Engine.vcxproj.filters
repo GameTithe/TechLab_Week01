@@ -75,7 +75,11 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
 <<<<<<< HEAD
+<<<<<<< HEAD
     <ClInclude Include="UIInfo.h">
+=======
+    <ClInclude Include="InputManager.h">
+>>>>>>> UI_Branch
 =======
     <ClInclude Include="InputManager.h">
 >>>>>>> UI_Branch

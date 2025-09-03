@@ -1,14 +1,14 @@
 #pragma once
- 
-static const UINT UIVBMaxVerts = 1024; 
+
+static const UINT UIVBMaxVerts = 1024;
 
 struct UIVertex
 {
 	float x, y;
 	float u, v;
 	float r, g, b, a;
-	 
-}; 
+
+};
 struct UIInfo
 {
 	float Win[2];
@@ -40,4 +40,4 @@ inline UIReact MakeRect(const float winSize[2], const float targetSize[2], const
 	r.x1 = cx + w * 0.5f; r.y1 = cy + h * 0.5f;
 	return r;
 
-} 
+}

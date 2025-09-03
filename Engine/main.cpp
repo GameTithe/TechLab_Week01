@@ -1805,6 +1805,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//Create UI Texture 
 	renderer.CreateUIResources();
 
+	//Create UI Texture 
+	renderer.CreateUIResources();
+
 	// Main Loop 
 	while (bIsExit == false)
 	{
@@ -1826,7 +1829,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				bIsExit = true;
 				break;
 			}
-		}
+		} 
 
 		//basic movement
 		for (int i = 0; i < PrimitiveVector.size(); i++)
@@ -1925,7 +1928,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			QueryPerformanceCounter(&endTime);
 
-			elapsedTime = (endTime.QuadPart - startTime.QuadPart);
+			elapsedTime = (endTime.QuadPart - startTime.QuadPart); 
 
 		} while (elapsedTime < targetFrameTime);
 
