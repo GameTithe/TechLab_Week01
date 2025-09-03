@@ -391,9 +391,6 @@ public:
 			/** 충돌했다면 */
 			if (dist2 < minDist * minDist)
 			{
-				/** 콜리전 발생 시 소리 재생 */
-				// TODO: 나중에 PreyEat랑 구분해야함
-				//USoundManager::PlayCollideSound();
 
 				EAttribute playerAttr = Player->GetAttribute();
 				EAttribute otherAttr = other->GetAttribute();

@@ -70,17 +70,36 @@ void UPlayer::SetDivide(bool newDivide)
 }
 
 void UPlayer::Movement()
-{
+{	
+	extern HWND hWnd;
 	// 넉백 상태일 때는 물리 기반으로 미끄러집니다.
 	if (bIsKnockedBack)
 	{
 		auto now = std::chrono::steady_clock::now();
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - knockbackStartTime).count();
 
-		if (elapsedTime >= 3)
+		if (elapsedTime >= 1)
 		{
 			bIsKnockedBack = false;
 			Velocity = FVector(0.0f, 0.0f, 0.0f);
+			if (UCamera::Main)
+			{
+				// 1. 플레이어의 현재 월드 위치를 카메라 공간(-1 ~ 1) 좌표로 변환합니다.
+				FVector cameraSpacePos = UCamera::Main->ConvertToCameraSpaceLocation(Location);
+
+				// 2. 카메라 공간 좌표를 윈도우 클라이언트 좌표(0~너비/높이)로 변환합니다.
+				RECT rect;
+				GetClientRect(hWnd, &rect);
+				float screenX = (cameraSpacePos.x + 1.0f) * 0.5f * (rect.right - rect.left);
+				float screenY = (-cameraSpacePos.y + 1.0f) * 0.5f * (rect.bottom - rect.top);
+
+				// 3. 클라이언트 좌표를 전체 화면 좌표로 변환합니다.
+				POINT screenPos = { (LONG)screenX, (LONG)screenY };
+				ClientToScreen(hWnd, &screenPos);
+
+				// 4. 변환된 위치로 마우스 커서를 이동시킵니다.
+				SetCursorPos(screenPos.x, screenPos.y);
+			}
 		}
 		else
 		{
@@ -92,7 +111,6 @@ void UPlayer::Movement()
 		}
 		return; // 넉백 상태일 때는 아래의 조작 로직을 실행하지 않음
 	}
-	extern HWND hWnd;
 
 	POINT mousePos;
 	GetCursorPos(&mousePos);
