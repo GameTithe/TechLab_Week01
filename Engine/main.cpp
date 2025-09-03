@@ -611,6 +611,16 @@ public:
 			Size--;
 		}
 	}
+	void Clear()
+	{
+		for (int i = 0; i < Size; i++)
+		{
+			delete primitives[i];
+			primitives[i] = nullptr;
+		}
+		Size = 0;
+		Player = nullptr;
+	}
 
 public:
 
@@ -913,7 +923,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			
 			ImGuiIO& io = ImGui::GetIO();
 			io.FontGlobalScale = 1.5f;
-			ImGui::Text("Time: %.2f s", ImGui::GetTime());
+			ImGui::Text("Time: %.2f s", ImGui::GetTime() - PlayTime);
 
 			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 			ImGui::Text("Objects: %d", PrimitiveVector.size());
@@ -926,7 +936,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			//시간제한
 			if(ImGui::GetTime() - PlayTime >= 3.0f)
-				ScreenState = Screen::EndingMenu;
+				ScreenState = Screen::VictoryMenu;
 			  
 			ImGui::End();
 
@@ -956,6 +966,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
 				PrimitiveVector.Player = nullptr;
+				Cam->Location = FVector(0.0f, 0.0f, 0.0f);
+				Cam->RenderScale = 1.0f;
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
 				Controller = new UController(10);
@@ -978,26 +990,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			MenuActions action = menuUI.DrawEndingMenu(renderer, hWnd);
 			if (action.start)
 			{
-				// 재시작 로직 (MainMenu와 동일)
+				// 1. 컨트롤러 정리
 				if (Controller)
 				{
 					delete Controller;
 					Controller = nullptr;
 				}
-				while (PrimitiveVector.size() > 0) { PrimitiveVector.RemoveAt(0); }
-				PrimitiveVector.Player = nullptr;
+				// 2. 모든 게임 객체 정리 (Clear() 함수만 사용)
+				PrimitiveVector.Clear();
+
+				// 3. 카메라 위치 및 줌 초기화
 				Cam->Location = FVector(0.0f, 0.0f, 0.0f);
 				Cam->RenderScale = 1.0f;
+
+				// 4. 새 플레이어와 컨트롤러 생성 및 등록
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
 				Controller = new UController(10);
 				Controller->Enroll(player);
-				for (int i = 0; i < 20; ++i)
+
+				// 5. 초기 먹이 생성 (적은 Spawner가 생성하도록 둠)
+				for (int i = 0; i < 15; ++i)
 				{
-					PrimitiveVector.push_back(new UEnemy());
-					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
+					PrimitiveVector.push_back(new UPrey());
 				}
 				enemySpawner.Init();
+
+				// 6. 마우스 커서 중앙 정렬
+				RECT rect;
+				GetClientRect(hWnd, &rect);
+				POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
+				ClientToScreen(hWnd, &center);
+				SetCursorPos(center.x, center.y);
+
+				// 7. 게임 상태 변경 및 시간 초기화
 				ScreenState = Screen::Running;
 				PlayTime = ImGui::GetTime();
 			}

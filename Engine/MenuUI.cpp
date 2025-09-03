@@ -79,8 +79,8 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	float winH = (float)(rect.bottom - rect.top);
 	float winSize[2] = { winW, winH };
 	POINT pt;
-	GetCursorPos(&pt);             
-	ScreenToClient(hWnd, &pt);      
+	GetCursorPos(&pt);
+	ScreenToClient(hWnd, &pt);
 	int mouseX = pt.x;
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
@@ -159,10 +159,10 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	int mouseX = pt.x;
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
-	 
+
 	// Exit UI
 	float exitRatio[2] = { 0.9f, 0.95f };
-	float exitUIOffset[2] = { 50.0f, 100.0f }; 
+	float exitUIOffset[2] = { 50.0f, 100.0f };
 
 	float targetSize[2] = { 200, 200 };
 	float hoveringSize[2] = { targetSize[0] - exitUIOffset[0],  targetSize[1] - exitUIOffset[1] };
@@ -175,8 +175,8 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
 	{
 		action.exit = true;
-		MenuAction = action; 
-	} 
+		MenuAction = action;
+	}
 	return MenuAction;
 }
 
@@ -201,13 +201,13 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 	float targetSize[2] = { winW, winH };
 	renderer.UpdateUIConstant(winSize, targetSize, false, nameRatio);
 	renderer.PrepareShaderUI(renderer.UINameSRV);
-	
+
 	// Title UI
 	float titleRatio[2] = { 0.5f, 0.3f };
 	targetSize[0] = 500; targetSize[1] = 500;
 	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
 	renderer.PrepareShaderUI(renderer.UIVictorySRV);
-	
+
 	// Start UI
 	float startRatio[2] = { 0.5f, 0.7f };
 	float startUIOffset[2] = { 50.0f, 100.f };
@@ -254,5 +254,5 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 		action.menu = true;
 		MenuAction = action;
 	}
-	return MenuAction; 
+	return MenuAction;
 }

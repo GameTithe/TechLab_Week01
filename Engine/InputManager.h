@@ -38,7 +38,7 @@ struct InputManager
 		}
 	 }
 	bool IsDown(MouseButton b)		const { return curMouse[(int)b]; }
-	bool IsClicked(MouseButton b)	const { return !curMouse[(int)b] && prevMouse[(int)b]; }
+	bool IsClicked(MouseButton b) const { return curMouse[(int)b] && !prevMouse[(int)b]; }
 	void GetNormalizedMousePos(float& x, float& y)
 	{
 		extern HWND hWnd;
