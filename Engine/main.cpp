@@ -1845,6 +1845,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// ★★ 수정 1: 게임 핵심 객체들을 WinMain 상단에 '선언'만 해둡니다.
 	FPrimitiveVector PrimitiveVector;
 	UCamera* cam = new UCamera();
+	UEnemySpawner spawner(200, 100);
 
 	// --- 타이머 설정 ---
 	LARGE_INTEGER frequency;
@@ -1903,12 +1904,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				// 초기 ENEMY와 PREY 생성
 				for (int i = 0; i < 30; ++i)
 				{
-					PrimitiveVector.push_back(new UEnemy());
+					
 					if (i % 2 == 0) PrimitiveVector.push_back(new UPrey());
 				}
 
 				ScreenState = Screen::Running; // 게임 상태를 '진행 중'으로 변경
-				InitSpawnerChrono();
 			}
 			if (action.exit)
 				bIsExit = true;
@@ -1916,7 +1916,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		case Screen::Running:
 		{
-			TickSpawnerChrono(&PrimitiveVector);
+			spawner.Tick(&PrimitiveVector);
 			// --- 업데이트 로직 ---
 			for (int i = 0; i < PrimitiveVector.size(); i++)
 			{
