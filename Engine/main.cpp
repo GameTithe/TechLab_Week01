@@ -780,7 +780,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
 				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
 				// renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.UpdateUnitConstant(prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(prim->GetVelocity(), prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
