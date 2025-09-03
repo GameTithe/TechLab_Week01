@@ -212,7 +212,7 @@ public:
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
 
-	FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
+	FLOAT ClearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	D3D11_VIEWPORT ViewportInfo;	// 렌더링 영역을 정의하는 뷰포트 정보 
 
 
