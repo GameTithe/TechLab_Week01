@@ -692,6 +692,7 @@ public:
 
 // WinMain 함수가 시작되기 전에 이 함수를 추가하세요.
 
+float playerScale = 0.0f;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -788,6 +789,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		std::vector<int> visiblePrimitives, invisiblePrimitives;
 		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
 
+		if(PrimitiveVector[0] != nullptr)
+			playerScale = PrimitiveVector[0]->GetRadius(); 
+		
 		for (int idx : visiblePrimitives)
 		{
 			UPrimitive* prim = PrimitiveVector[idx];
@@ -796,7 +800,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				FVector renderedLocation = Cam->ConvertToCameraSpaceLocation(prim->GetLocation());
 				float renderedRadius = Cam->ConvertToCameraSpaceRadius(prim->GetRadius());
 				// renderer.UpdateConstant(renderedLocation, renderedRadius);
-				renderer.UpdateUnitConstant(prim->GetVelocity(), prim->GetAttribute(), iTime, renderedLocation, renderedRadius);
+				renderer.UpdateUnitConstant(prim->GetVelocity(), prim->GetAttribute(), iTime, renderedLocation, renderedRadius, playerScale);
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
@@ -939,6 +943,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ScreenState = Screen::EndingMenu;
 			}
 
+			ImGui::Text("Radius: %.2f", playerScale);
 			// --- 게임 UI (ImGui) ---
 			ImGui::Begin("Game Info");			
 			ImGui::Text("Camera Pos: %.2f %.2f %.2f ", Cam->Location.x, Cam->Location.y, Cam->Location.z);
@@ -966,7 +971,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 
 			//시간제한 - 게임이 시작되고 3초가 지나면 승리
-			if (bGameStarted && currentGameTime >= 3.0) {
+			if (bGameStarted && currentGameTime >= 30.0) {
 				ScreenState = Screen::VictoryMenu;
 				PrimitiveVector.Clear();
 

@@ -355,6 +355,11 @@ void URenderer::PrepareUnitShader()
 		DeviceContext->VSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
 		DeviceContext->PSSetConstantBuffers(1, 1, &ConstantUnitBuffer);
 	}
+	if (SmoothConstBuffer)
+	{
+		DeviceContext->VSSetConstantBuffers(2, 1, &SmoothConstBuffer);
+		DeviceContext->PSSetConstantBuffers(2, 1, &SmoothConstBuffer);
+	}
 
 	float blendFactor[4] = { 0,0,0,0 };
 	DeviceContext->OMSetBlendState(UIAlphaBlend, blendFactor, 0xffffffff);
@@ -433,6 +438,13 @@ void URenderer::CreateConstantBuffer()
 	constantUnitBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	constantUnitBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	Device->CreateBuffer(&constantUnitBufferDesc, nullptr, &ConstantUnitBuffer);
+
+	D3D11_BUFFER_DESC smoothConstantBufferDesc = {};
+	smoothConstantBufferDesc.ByteWidth = (sizeof(FPlayerInfo) + 0xf) & 0xfffffff0; // align 16byte 
+	smoothConstantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	smoothConstantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	smoothConstantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	Device->CreateBuffer(&smoothConstantBufferDesc, nullptr, &SmoothConstBuffer);
 }
 
 void URenderer::ReleaseConstantBuffer()
@@ -459,7 +471,7 @@ void URenderer::UpdateConstant(FVector Offset, float Scale)
 	}
 }
 
-void URenderer::UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale)
+void URenderer::UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale, float playerScale)
 {
 	if (ConstantBuffer)
 	{
@@ -492,6 +504,20 @@ void URenderer::UpdateUnitConstant(FVector velocity, int attribute, float time, 
 
 		DeviceContext->Unmap(ConstantUnitBuffer, 0);
 
+	}
+
+	//TODO
+	if (SmoothConstBuffer)
+	{
+		D3D11_MAPPED_SUBRESOURCE smoothconstantBufferMSR;
+
+		DeviceContext->Map(SmoothConstBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &smoothconstantBufferMSR);
+		FContactInfo* constants = (FContactInfo*)smoothconstantBufferMSR.pData;
+
+		constants->playerCenter = 0;
+		constants->playerScale = playerScale;
+
+		DeviceContext->Unmap(SmoothConstBuffer, 0);
 	}
 }
 void URenderer::UpdateUIConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2])

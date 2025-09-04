@@ -34,6 +34,7 @@ public:
 	ID3D11VertexShader* UIVS = nullptr;
 	ID3D11PixelShader* UIPS = nullptr;
 	ID3D11InputLayout* UIInputLayout = nullptr;
+
 	ID3D11Buffer* UIVertexBuffer = nullptr;
 	ID3D11Buffer* UIPerFrameCB = nullptr;
 
@@ -55,6 +56,7 @@ public:
 	ID3D11ShaderResourceView* WaterBallNoiseSRV = nullptr;
 	ID3D11SamplerState* UnitNoiseSampler = nullptr;
 
+	ID3D11Buffer* SmoothConstBuffer = nullptr;
 
 
 public:
@@ -134,7 +136,7 @@ public:
 
 	void UpdateConstant(FVector Offset, float Scale);
 
-	void UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale);
+	void UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale, float playerScale);
 
 	void UpdateUIConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2]);
 };
