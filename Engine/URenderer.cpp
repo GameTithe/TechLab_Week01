@@ -504,8 +504,7 @@ void URenderer::UpdateUnitConstant(FVector velocity, int attribute, float time, 
 		DeviceContext->Unmap(ConstantUnitBuffer, 0);
 
 	}
-
-	//TODO
+	 
 	if (SmoothConstBuffer)
 	{
 		D3D11_MAPPED_SUBRESOURCE smoothconstantBufferMSR;

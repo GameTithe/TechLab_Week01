@@ -944,9 +944,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 
 			// --- 게임 UI (ImGui) ---
-			ImGui::Begin("Game Info");			
-			ImGui::Text("Camera Pos: %.2f %.2f %.2f ", Cam->Location.x, Cam->Location.y, Cam->Location.z);
-			
+			ImGui::Begin("Game Info");			 
 			ImGuiIO& io = ImGui::GetIO();
 			io.FontGlobalScale = 1.5f;
 			
