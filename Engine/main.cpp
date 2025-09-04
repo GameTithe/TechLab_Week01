@@ -1035,6 +1035,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				QueryPerformanceCounter(&GameStartTime);
 				bGameStarted = true;
 			}
+			if (action.menu)
+			{
+				ScreenState = Screen::MainMenu;
+			}
 			if (action.exit)
 				bIsExit = true;
 			break;
