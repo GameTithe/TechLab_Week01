@@ -10,3 +10,10 @@ struct FPlayerInfo
 	float iTime;
 	float velocity[2];
 };
+
+struct FContactInfo
+{
+	float playerScale;
+	float playerCenter;
+	float Padding[2];
+};

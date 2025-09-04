@@ -10,11 +10,11 @@ static const float3 green = float3(0.058, 0.933, 0.124);
 static const float3 blue = float3(0.05, 0.411, 0.941);
 static const float3 gray = float3(0.15, 0.15, 0.15);
 
-
+static const float SmoothK = 20.0f; 
+static const float SmoothK_NDC = 0.05f;
  
 cbuffer constants : register(b0)
-{
-    // C++�� FVector(float3)�� ���߱� ���� float3�� ����
+{ 
     float3 Offset;
     float Scale;
 }
@@ -24,7 +24,15 @@ cbuffer playerInfo : register(b1)
     int Attribute;
     float2 Resolution;
     float iTime;
+    
     float2 velocity; 
+}
+
+cbuffer contactInfo : register(b2)
+{ 
+    float playerScale;
+    float playerCenter; 
+    float2 Padding;
 }
 
 struct VS_INPUT
@@ -40,30 +48,44 @@ struct VS_OUT
     float2 uv : TEXCOORD0; 
     float4 color : COLOR;
     float2 center : TEXCOORD1;
+    
 };
-
-VS_OUT mainVS(VS_INPUT input )
+ 
+VS_OUT mainVS(VS_INPUT input)
 {
-    VS_OUT output;
-    output.position = input.position * float4(Scale + 0.02, Scale + 0.02, Scale, 1) + float4(Offset, 0);
-    output.color = input.color; 
-    output.uv = input.uv;
+    VS_OUT o;
+     
+    float4 clip = input.position * float4(Scale, Scale, Scale, 1) + float4(Offset, 0);
+     
+    const float2 playerNDC = float2(0.0, 0.0);
+    float2 centerNDC = Offset.xy;
+    float2 toPlayer = playerNDC - centerNDC;
+    float dist = length(toPlayer);
+     
+    float blendStart = Scale + playerScale + 0.2; // 시작 거리
     
-    
-    // [0 , 1] 
-    float2 ndcCenter = (Offset.xy) * 0.5f + 0.5f; 
-    ndcCenter.y = 1.0f - ndcCenter.y; 
-    
-    output.center = ndcCenter * Resolution.xy;
-    
-    return output;
-} 
-
+    float t = saturate((blendStart - dist) / 0.05);
+    t = t * t * (3.0 - 2.0 * t); // smoothstep(0,1,t)
+     
+    //edge는 가중치 up
+    float edge = saturate(length(input.uv - float2(0.5, 0.5)) * 2.0);
+     
+    if (t > 0.0)
+    {
+        float2 dirN = toPlayer / max(dist, 1e-5);
+        float disp = t * edge * SmoothK_NDC; // 한 개의 노브
+        clip.xy += dirN * disp; 
+         
+     } 
+     
+    o.position = clip;
+    o.color = input.color;
+    o.uv = input.uv;
+      
+    return o;
+}
 float4 mainPS(VS_OUT input) : SV_Target
-{
-    //float2 norm = input.position.xy / 1024.0f; 
-    //float4 tex0 = NoiseTexture.Sample(NoiseSampler, input.uv);
-    //return float4(tex0); 
+{ 
     float2 fragCoord = input.position.xy;
     float2 center = input.center;
      
@@ -79,11 +101,7 @@ float4 mainPS(VS_OUT input) : SV_Target
     a *= a;
     
     a /= i / 5.;
-
-    
-    //float3 color = color1 * a; 
-    //return float4(color, 1.);
-    
+     
     float3 color1;
     if(Attribute == 0)
         color1 = blue;
@@ -95,7 +113,7 @@ float4 mainPS(VS_OUT input) : SV_Target
         color1 = green;
     
     if(Attribute == 3)
-        color1 = gray;
+        color1 = gray; 
     
     float3 color = color1 * a;
     return float4(color, a);

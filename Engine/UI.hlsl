@@ -48,8 +48,7 @@ float4 mainPS(PS_INPUT input) : SV_Target
     if (IsHovering == 1)
     {
         tex0.rgb *= 1.5; 
-    }
-    
+    } 
     
     return float4(tex0.rgb, tex0.a);
 }
