@@ -28,8 +28,6 @@ cbuffer playerInfo : register(b1)
     float2 velocity; 
 }
 
-
-//flag
 cbuffer contactInfo : register(b2)
 { 
     float playerScale;
@@ -50,108 +48,44 @@ struct VS_OUT
     float2 uv : TEXCOORD0; 
     float4 color : COLOR;
     float2 center : TEXCOORD1;
+    
 };
-
-float smin(float a, float b, float k)
-{
-    
-    float h = saturate(0.5 + 0.5 * (b - a) / k);
-    return lerp(b, a, h) - k * h * (1.0 - h);
-}
-
-float sdf_circle(float2 p, float2 c, float r)
-{
-    return length(p - c) - r;
-}
-
-float smooth01(float t)
-{
-    return t * t * (3.0f - 2.0f * t);
-}
-
-
-float2 NdcToPixel(float2 ndc, float2 res)
-{
-    float2 uv01 = ndc * 0.5f + 0.5f;
-    uv01.y = 1.0f - uv01.y;
-    return uv01 * res;
-}
-float2 PixelToNdc(float2 px, float2 res)
-{
-    float2 uv01 = px / res;
-    uv01.y = 1.0f - uv01.y;
-    return uv01 * 2.0f - 1.0f;
-}
-float smoothInflate(float overlap, float k)
-{
-    // overlap ∈ [0, k]에서 0→1로 변화
-    float t = saturate(overlap / k);
-    // cubic S-curve
-    return t * t * (3.0f - 2.0f * t);
-}
-
-//VS_OUT mainVS(VS_INPUT input )
-//{
-//    VS_OUT output;
-//    output.position = input.position * float4(Scale + 0.02, Scale + 0.02, Scale, 1) + float4(Offset, 0);
-//    output.color = input.color; 
-//    output.uv = input.uv;
-    
-    
-//    // [0 , 1] 
-//    float2 ndcCenter = (Offset.xy) * 0.5f + 0.5f; 
-//    ndcCenter.y = 1.0f - ndcCenter.y; 
-    
-//    output.center = ndcCenter * Resolution.xy;
-    
-//    return output;
-//} 
-
-
+ 
 VS_OUT mainVS(VS_INPUT input)
 {
     VS_OUT o;
-
-    // 1) 원래 파이프라인대로 클립 공간으로 변환
-    float4 clipPos = input.position * float4(Scale + 0.02, Scale + 0.02, Scale, 1) + float4(Offset, 0);
-        
-    float2 playerNDC = float2(0.0f, 0.0f);
-    float2 selfCenterNDC = Offset.xy;
+     
+    float4 clip = input.position * float4(Scale, Scale, Scale, 1) + float4(Offset, 0);
+     
+    const float2 playerNDC = float2(0.0, 0.0);
+    float2 centerNDC = Offset.xy;
+    float2 toPlayer = playerNDC - centerNDC;
+    float dist = length(toPlayer);
+     
+    float blendStart = Scale + playerScale + 0.2; // 시작 거리
     
-    float2 dir = playerNDC - selfCenterNDC;
-    float dist = length(dir) + 1e-6;
-    float overlap = (Scale + 0.02f + playerScale) - dist;
-    
-    float2 nNdc = dir / dist;
-    
-    if (overlap > 0.2f )
+    float t = saturate((blendStart - dist) / 0.05);
+    t = t * t * (3.0 - 2.0 * t); // smoothstep(0,1,t)
+     
+    //edge는 가중치 up
+    float edge = saturate(length(input.uv - float2(0.5, 0.5)) * 2.0);
+     
+    if (t > 0.0)
     {
-    // 밴드 내에서 0..1 가중치를 만들기 위해 shift & normalize
-    // overlap = -K 에서 0, overlap = +K 에서 1 근처가 되도록
-        float t = saturate((overlap + SmoothK_NDC) / (2.0f * SmoothK_NDC));
-        float w = smooth01(t); // 0..1
-
-    // 가장자리에서 더 크게 부풀리기(예: 원 가장자리쪽에서 강하게)
-        float edgeFactor = saturate((length(input.uv - 0.5f) - 0.3f) / 0.2f);
-
-    // 실제 이동량(NDC). w는 0..1, 최대 이동폭을 SmoothK_NDC로 제한
-        float inflateNdc = w * SmoothK_NDC * edgeFactor;
-
-    // 정점을 플레이어 방향으로 살짝 이동(clip==NDC 가정 → w=1이면 그냥 더해도 됨)
-        clipPos.xy += nNdc * inflateNdc * clipPos.w; // clipPos.w가 1이라면 곱해도 동일
-    }
-
-    o.position = clipPos;
+        float2 dirN = toPlayer / max(dist, 1e-5);
+        float disp = t * edge * SmoothK_NDC; // 한 개의 노브
+        clip.xy += dirN * disp; 
+         
+     } 
+     
+    o.position = clip;
     o.color = input.color;
-    o.uv = input.uv; 
+    o.uv = input.uv;
+      
     return o;
 }
-
 float4 mainPS(VS_OUT input) : SV_Target
-{
-    //float2 norm = input.position.xy / 1024.0f; 
-    //float4 tex0 = NoiseTexture.Sample(NoiseSampler, input.uv);
-    //return float4(tex0); 
+{ 
     float2 fragCoord = input.position.xy;
     float2 center = input.center;
      
@@ -167,11 +101,7 @@ float4 mainPS(VS_OUT input) : SV_Target
     a *= a;
     
     a /= i / 5.;
-
-    
-    //float3 color = color1 * a; 
-    //return float4(color, 1.);
-    
+     
     float3 color1;
     if(Attribute == 0)
         color1 = blue;
@@ -183,7 +113,7 @@ float4 mainPS(VS_OUT input) : SV_Target
         color1 = green;
     
     if(Attribute == 3)
-        color1 = gray;
+        color1 = gray; 
     
     float3 color = color1 * a;
     return float4(color, a);

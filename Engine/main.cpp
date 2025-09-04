@@ -804,8 +804,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
-		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
-		 
+
+		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives); 
 		float checkTime = 0.0f;
 
 		////////// UI TEST //////////  
@@ -943,7 +943,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ScreenState = Screen::EndingMenu;
 			}
 
-			ImGui::Text("Radius: %.2f", playerScale);
 			// --- 게임 UI (ImGui) ---
 			ImGui::Begin("Game Info");			
 			ImGui::Text("Camera Pos: %.2f %.2f %.2f ", Cam->Location.x, Cam->Location.y, Cam->Location.z);

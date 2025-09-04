@@ -431,7 +431,6 @@ void URenderer::CreateConstantBuffer()
 	constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	Device->CreateBuffer(&constantBufferDesc, nullptr, &ConstantBuffer);
 
-
 	D3D11_BUFFER_DESC constantUnitBufferDesc = {};
 	constantUnitBufferDesc.ByteWidth = (sizeof(FPlayerInfo) + 0xf) & 0xfffffff0; // align 16byte 
 	constantUnitBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
