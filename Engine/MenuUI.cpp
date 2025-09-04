@@ -29,8 +29,8 @@ MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 	float winSize[2] = { winW, winH };
 
 	POINT pt;
-	GetCursorPos(&pt);             
-	ScreenToClient(hWnd, &pt);     
+	GetCursorPos(&pt);
+	ScreenToClient(hWnd, &pt);
 	int mouseX = pt.x;
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
@@ -60,7 +60,8 @@ MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
 	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
-	 
+
+	// --- Handle Button Click --- 
 	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
 	{
 		MenuAction.start = true;

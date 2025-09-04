@@ -104,9 +104,6 @@ inline float Dot(const FVector& v1, const FVector& v2)
 //sphere
 #include "Sphere.h" 
 
-class UPlayer; 
-
-
 class UController
 {
 public:
@@ -640,14 +637,14 @@ using Clock = std::chrono::steady_clock;
 class UEnemySpawner
 {
 public:
+	// @param BaseInterval: 기본 생성 주기 (밀리초)
+	// @param RandomInterval: BaseInterval에 추가적으로 더해지는 랜덤 생성 주기 (밀리초)
 	UEnemySpawner(int BaseInterval = 300, int RandomInterval = 300) : BaseSpawnIntervalMs(BaseInterval), RandomSpawnIntervalMs(RandomInterval)
 	{
 		Init();
 	}
 
 	/** Base spawn interval in milliseconds */
-
-
 	int BaseSpawnIntervalMs;
 
 	/** Random spawn interval in milliseconds */
@@ -739,8 +736,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
+	// --- 게임 컴포넌트들 선언 / 초기화 ---
 	FPrimitiveVector PrimitiveVector;
-	UController* Controller = new UController(10);;
+	UController* Controller = new UController(10);
 	UCamera* Cam = new UCamera();
 	UCamera::Main = Cam;
 	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
@@ -778,14 +776,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		renderer.Prepare();
 		renderer.PrepareUnitShader();
 
-		//Test Time
+		// Texture Noise Timer
 		LARGE_INTEGER now;
 		QueryPerformanceCounter(&now);
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
 
 		// --- 렌더링 로직 ---
-		renderer.PrepareUnitShader();
 		std::vector<int> visiblePrimitives, invisiblePrimitives;
 		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
 
@@ -804,9 +801,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
-
-		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives); 
-		float checkTime = 0.0f;
+		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
+		
 
 		////////// UI TEST //////////  
 		switch (ScreenState)
@@ -823,7 +819,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					Controller = nullptr;
 				}
 				
-
 				// 만약을 위해 기존 객체들을 모두 삭제 (재시작 기능 대비)
 				while (PrimitiveVector.size() > 0)
 				{
@@ -872,7 +867,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
-
 
 			// Tick 
 			enemySpawner.Tick(&PrimitiveVector);
