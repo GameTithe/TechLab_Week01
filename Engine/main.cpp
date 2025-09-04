@@ -757,8 +757,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				break;
 			}
 		}
+
+
 		renderer.Prepare();
+		menuUI.DrawBackgroundMenu(renderer, playerWorldPos, hWnd);
+
+
 		renderer.PrepareUnitShader();
+
 
 		//iTime For Noise Texture
 		LARGE_INTEGER now;
@@ -775,8 +781,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		if (PrimitiveVector[0] != nullptr)
 			playerScale = PrimitiveVector[0]->GetRadius();
 
-		menuUI.DrawBackgroundMenu(renderer, playerWorldPos, hWnd);
-		renderer.DeviceContext->ClearDepthStencilView(renderer.DepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+		
 
 		for (int idx : visiblePrimitives)
 		{
@@ -794,10 +799,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		playerWorldPos[0] = Cam->Location.x;
 		playerWorldPos[1] = -Cam->Location.y;
-
-		// 배경 포함 UI 그리기 시작 위치에서
-
-		//renderer.DeviceContext->OMSetDepthStencilState(rendererUIDepthOff, 0);
+		 
 		////////// UI TEST //////////  
 		switch (ScreenState)
 		{

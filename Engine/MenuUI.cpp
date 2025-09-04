@@ -39,9 +39,9 @@ void MenuUI::DrawBackgroundMenu(URenderer& renderer, float playerPos[2], HWND hW
 	float resolu[2]  = {1024	, 1024}; 
 
 	renderer.UpdateBackgroundUIConstant(winSize,  playerPos, resolu	, titleRatio);
+	renderer.PrepareShaderUI(renderer.UIBackgroundSRV);
 	
 	//TODO
-	renderer.PrepareShaderUI(renderer.UIBackgroundSRV);
 
 }
 
