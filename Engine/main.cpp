@@ -416,8 +416,13 @@ public:
 				{
 					USoundManager::PreyEat();
 
-					Player->AddScore(-5);
-					Player->SetRadius(Player->GetRadius() - 0.005f);
+					float otherRadius = other->GetRadius();
+					int scoreToAdd = static_cast<int>(otherRadius * otherRadius * 1000);
+					Player->AddScore(-scoreToAdd);
+
+					float playerRadius = Player->GetRadius();
+					float newRadius = sqrt(abs(playerRadius * playerRadius - otherRadius * otherRadius));
+					Player->SetRadius(newRadius);
 					RemoveAt(i); /** 상대 객체를 제거 */
 				}
 
