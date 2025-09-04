@@ -7,18 +7,21 @@
 // UPlayer 클래스 구현
 UPlayer::UPlayer()
 {
-	// 1. �÷��̾� �Ӽ��� �������� ����
-	Attribute = (EAttribute)(rand() % 3); // 0, 1, 2 �??�나�??�덤?�로 뽑아 ?�성?�로 지??
+	// 1. 플레이어 속성 초기화
+	// 0, 1, 2 중 하나를 랜덤으로 뽑아 속성을 지정합니다.
+	Attribute = static_cast<EAttribute>(rand() % 3);
 
-	Radius = 0.08f; // �ʱ� ũ��
+	// 초기 크기와 질량, 위치, 속도를 설정합니다.
+	Radius = 0.08f;
 	Mass = Radius * 10.0f;
-	Location = FVector(0.0f, 0.0f, 0.0f); // ?�면 중앙?�서 ?�작
-	Velocity = FVector(0.0f, 0.0f, 0.0f); // ?�도??마우?��? ?�르므�?0?�로 ?�작
+	Location = FVector(0.0f, 0.0f, 0.0f); // 화면 중앙에서 시작
+	Velocity = FVector(0.0f, 0.0f, 0.0f); // 마우스를 따라 움직이므로 초기 속도는 0으로 설정
 	Score = 0;
 
 	PlayerInfo.att = Attribute;
 }
 
+// UPrimitive 가상 함수 구현
 FVector UPlayer::GetLocation() const
 {
 	return Location;
@@ -66,31 +69,36 @@ bool UPlayer::GetDivide() const
 
 void UPlayer::SetDivide(bool newDivide)
 {
-	// Empty implementation
 }
 
+// 마우스 힘과 중력 적용
 void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector CenterOfMass)
 {
-	const float MouseAccStrength = 0.003f; // 마우스 힘에 의한 가속도 크기
-	const float KnockedBackAccStrength = 0.0009f; // 넉백 상태에서 마우스 힘에 의한 가속도 크기
-	const float GravityStrength = 0.01f;   // 중력에 의한 가속도 크기
+	const float MouseAccStrength = 0.003f;			// 마우스 힘에 의한 가속도 크기
+	const float KnockedBackAccStrength = 0.0009f;	// 넉백 상태에서의 마우스 힘에 의한 가속도 크기
+	const float GravityStrength = 0.01f;			// 중력에 의한 가속도 크기
 
+	// 마우스 방향으로의 가속도 계산
 	FVector MouseAcc = MouseWorldLocation - CenterOfMass;
 	if (MouseAcc.Magnitude() < 0.025f && !bIsKnockedBack)
 	{
+		// 마우스가 플레이어에 가까우면 멈춥니다.
 		MouseAcc = FVector(0.0f, 0.0f, 0.0f);
 		Velocity = FVector(0.0f, 0.0f, 0.0f);
 	}
 	else
 	{
+		// 넉백 상태에 따라 다른 가속도 크기를 적용합니다.
 		MouseAcc *= bIsKnockedBack ? KnockedBackAccStrength : MouseAccStrength;
 	}
 
+	// 중력 가속도 계산 (질량 중심으로 끌어당기는 힘)
 	FVector GravityForce = CenterOfMass - GetLocation();
 	GravityForce.Normalize();
 	GravityForce *= GravityStrength;
 	FVector GravityAcc = GravityForce * (1.0f / Mass);
 
+	// 가속도를 속도에 더합니다.
 	Velocity += MouseAcc + GravityAcc;
 	float baseLimit = bIsKnockedBack ? KnockedBackMaxSpeed : MaxSpeed;
 	float dynamicLimit = baseLimit;
@@ -109,131 +117,92 @@ void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector Cent
 	}
 }
 
+// 플레이어 움직임 로직
 void UPlayer::Movement()
 {
 	// 넉백 상태일 때는 물리 기반으로 미끄러집니다.
 	if (bIsKnockedBack)
 	{
 		auto now = std::chrono::steady_clock::now();
+		// 넉백 시작 시간으로부터 경과된 시간을 초 단위로 계산합니다.
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(now - knockbackStartTime).count();
 
 		if (elapsedTime >= 3)
 		{
+			// 3초가 지나면 넉백 상태를 해제합니다.
 			bIsKnockedBack = false;
-			//Velocity = FVector(0.0f, 0.0f, 0.0f);
 		}
 		else
 		{
-			//// 위치 업데이트
-			//Location += Velocity;
-			//// 마찰력
-			//Velocity.x *= 0.98f;
-			//Velocity.y *= 0.98f;
+			// 넉백 상태에서는 추가적인 움직임 로직이 없습니다.
 		}
-		//return; // 넉백 상태일 때는 아래의 조작 로직을 실행하지 않음
 	}
 
-	// ==========================================================
-	// ▼▼▼▼▼ 핵심 수정: 속도 기반 이동 로직 ▼▼▼▼▼
-	// ==========================================================
-	//extern HWND hWnd;
-
-	//POINT mousePos;
-	//GetCursorPos(&mousePos);
-	//ScreenToClient(hWnd, &mousePos);
-
-	//RECT clientRect;
-	//GetClientRect(hWnd, &clientRect);
-
-	//// 1. 마우스 위치를 '월드 좌표'로 변환합니다.
-	//float cameraX = ((float)mousePos.x / clientRect.right) * 2.0f - 1.0f;
-	//float cameraY = (-(float)mousePos.y / clientRect.bottom) * 2.0f + 1.0f;
-	//FVector mouseWorldPos = FVector(0.f, 0.f, 0.f);
-
-	//if (UCamera::Main)
-	//{
-	//	mouseWorldPos = UCamera::Main->ConvertToWorldSpaceLocation(FVector(cameraX, cameraY, 0.0f));
-	//}
-
-	//// 2. 플레이어 위치에서 마우스 월드 위치를 향하는 '방향 벡터'를 구합니다.
-	//FVector moveDirection = mouseWorldPos - Location;
-	//float dist2 = moveDirection.x * moveDirection.x + moveDirection.y * moveDirection.y;
-
-	//// 3. 마우스가 플레이어와 매우 가깝지 않을 때만 움직이도록 '데드존'을 설정합니다.
-	//if (dist2 > 0.0001f) // 매우 작은 값보다 클 때만
-	//{
-	//	// 방향 벡터를 정규화(길이를 1로 만듦)합니다.
-	//	float dist = sqrt(dist2);
-	//	moveDirection.x /= dist;
-	//	moveDirection.y /= dist;
-
-	//	// 4. 이 방향으로 일정한 속도를 설정합니다.
-	//	const float playerSpeed = 0.015f; // 플레이어 속도. 이 값을 조절해 보세요.
-	//	Velocity = moveDirection * playerSpeed;
-	//}
-	//else
-	//{
-	//	// 마우스가 플레이어 위에 있으면 멈추도록 속도를 0으로 설정합니다.
-	//	Velocity = FVector(0.0f, 0.0f, 0.0f);
-	//}
-
-	// 5. 최종적으로 계산된 속도를 위치에 더해 플레이어를 움직입니다.
 	Location += Velocity;
-	// ==========================================================
-	// ▲▲▲▲▲ 핵심 수정 끝 ▲▲▲▲▲
-	// ==========================================================
 }
 
+// 점수 추가
 void UPlayer::AddScore(int amount)
 {
 	Score += amount;
 }
 
+// 점수 반환
 int UPlayer::GetScore() const
 {
 	return Score;
 }
 
+// 반지름 설정
 void UPlayer::SetRadius(float newRadius)
 {
 	Radius = newRadius;
-	// ?�기가 변?�면 질량??같이 ?�데?�트
+	// 반지름이 변하면 질량도 같이 업데이트됩니다.
 	Mass = Radius * 10.0f;
 }
 
+// 화면 밖의 랜덤한 위치를 반환
 FVector GetRandomLocationOusideScreen()
 {
 	FVector Vector;
 	do
 	{
-		Vector.x = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
-		Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f; // -2 ~ 2
+		// x, y 좌표를 -2.0f에서 2.0f 사이의 랜덤 값으로 설정합니다.
+		Vector.x = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f;
+		Vector.y = (static_cast<float>(rand()) / RAND_MAX) * 4.0f - 2.0f;
 		Vector.z = 0.0f;
 	} while ((Vector.x >= -1.0f && Vector.x <= 1.0f) &&
-			(Vector.y >= -1.0f && Vector.y <= 1.0f));
+			 (Vector.y >= -1.0f && Vector.y <= 1.0f)); // 화면 안쪽이 아닌 위치를 찾을 때까지 반복합니다.
 
 	return Vector;
 }
 
+// 지정된 강도의 랜덤 노이즈 벡터를 반환
 FVector GetRandomNoiseVector(float Intensity)
 {
-	return FVector((rand() / (float)RAND_MAX) * Intensity, (rand() / (float)RAND_MAX) * Intensity, 0.0f);
+	return FVector((rand() / static_cast<float>(RAND_MAX)) * Intensity, (rand() / static_cast<float>(RAND_MAX)) * Intensity, 0.0f);
 }
 
 // UEnemy 클래스 구현
 UEnemy::UEnemy()
 {
-	Attribute = (EAttribute)(rand() % 3);
+	// 속성을 랜덤으로 지정합니다.
+	Attribute = static_cast<EAttribute>(rand() % 3);
+	// 화면 밖의 랜덤한 위치를 계산합니다.
 	FVector RandomLocationOusideScreen = GetRandomLocationOusideScreen();
+	// 카메라 스케일에 맞게 적의 초기 위치를 설정합니다.
 	Location = RandomLocationOusideScreen / UCamera::Main->RenderScale + UCamera::Main->Location;
 
 	const float enemySpeed = 0.001f;
+	// 초기 속도를 랜덤 노이즈와 초기 위치를 기반으로 설정합니다.
 	Velocity = (GetRandomNoiseVector(0.5f) - RandomLocationOusideScreen) * enemySpeed * 10;
 
-	Radius = ((rand() / (float)RAND_MAX)) * 0.1f + 0.03f;
+	// 반지름과 질량을 랜덤하게 설정합니다.
+	Radius = ((rand() / static_cast<float>(RAND_MAX))) * 0.1f + 0.03f;
 	Mass = Radius * 10.0f;
 }
 
+// UPrimitive 가상 함수 구현
 FVector UEnemy::GetLocation() const
 {
 	return Location;
@@ -281,35 +250,32 @@ bool UEnemy::GetDivide() const
 
 void UEnemy::SetDivide(bool newDivide)
 {
-	// Empty implementation
+	// 비어있는 구현
 }
 
+// 적의 움직임 로직
 void UEnemy::Movement()
 {
 	Location += Velocity;
-
-	/*if (Location.x > 1.0f - Radius || Location.x < -1.0f + Radius)
-	{
-		Velocity.x *= -1.0f;
-	}
-	if (Location.y > 1.0f - Radius || Location.y < -1.0f + Radius)
-	{
-		Velocity.y *= -1.0f;
-	}*/
 }
 
 // UPrey 클래스 구현
 UPrey::UPrey()
 {
+	// 속성을 NONE으로 지정합니다.
 	Attribute = EAttribute::NONE;
+	// 먹이는 움직이지 않으므로 속도를 0으로 설정합니다.
 	Velocity = FVector(0.0f, 0.0f, 0.0f);
-	// Radius 가져다 써도 됨
+	// 카메라 스케일에 맞게 먹이의 초기 위치를 설정합니다.
 	Location = GetRandomLocationOusideScreen() / UCamera::Main->RenderScale + UCamera::Main->Location;
-	Radius = ((rand() / (float)RAND_MAX)) * 0.01f + 0.02f;
+	// 반지름과 질량을 랜덤하게 설정합니다.
+	Radius = ((rand() / static_cast<float>(RAND_MAX))) * 0.01f + 0.02f;
 	Mass = Radius * 10.0f;
+	// 생성 후 15초 뒤에 사라지도록 만료 시간을 설정합니다.
 	ExpirationTime = std::chrono::steady_clock::now() + std::chrono::seconds(15);
 }
 
+// UPrimitive 가상 함수 구현
 FVector UPrey::GetLocation() const
 {
 	return Location;
@@ -357,10 +323,8 @@ bool UPrey::GetDivide() const
 
 void UPrey::SetDivide(bool newDivide)
 {
-	// Empty implementation
 }
 
 void UPrey::Movement()
 {
-	// ?�무 코드???�음
 }
