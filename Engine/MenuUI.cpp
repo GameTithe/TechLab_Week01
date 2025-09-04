@@ -5,29 +5,38 @@
 #include "SoundManager.h"
 
 
+// 공통 UI 반응형 처리 함수
 bool  MenuUI::SettingReactUI(URenderer renderer, ID3D11ShaderResourceView* SRV, float winSize[2], float mousePos[2],
 	float targetSize[2], float ratio[2], float posOffset[2])
 { 
+	// 마우스 Hover 영역 사이즈 조정
 	float hoveringSize[2] = { targetSize[0] - posOffset[0], targetSize[1] - posOffset[1] };
+	// UI의 사각형 영역 계산
 	UIReact reactStart = MakeRect(winSize, hoveringSize, ratio);
+	// 마우스가 UI 위에 있는지 체크
 	bool hoverTest = CheckMouseOnUI(reactStart, mousePos[0], mousePos[1]);
+	// UI 셰이더 상수 업데이트 (hover 여부 반영)
 	renderer.UpdateUIConstant(winSize, targetSize, hoverTest, ratio);
+	// UI 렌더링 준비 (셰이더 리소스 바인딩)
 	renderer.PrepareShaderUI(SRV); 
 
 	return hoverTest;
 }
 
 
+// 메인 메뉴 그리기
 MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 {
 	MenuActions MenuAction{};
 
+	// 윈도우 사이즈 구하기
 	RECT rect;
 	GetClientRect(hWnd, &rect);
 	float winW = (float)(rect.right - rect.left);
 	float winH = (float)(rect.bottom - rect.top);
 	float winSize[2] = { winW, winH };
 
+	// 마우스 위치 가져오기 (윈도우 클라이언트 좌표계)
 	POINT pt;
 	GetCursorPos(&pt);             
 	ScreenToClient(hWnd, &pt);     
@@ -36,13 +45,13 @@ MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 	float mousePos[2] = { mouseX, mouseY };
 
 
-	// Title UI   
+	// Title UI 렌더링
 	float titleRatio[2] = { 0.5f, 0.3f };
 	float targetSize[2] = { 500, 500 };
 	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
 	renderer.PrepareShaderUI(renderer.UITitleSRV);
 
-	// Start UI  
+	// Start 버튼 UI
 	float startRatio[2] = { 0.5f, 0.7f };
 	float startUIOffset[2] = { 50.0f, 100.f };
 	targetSize[0] = 200; targetSize[1] = 200;
@@ -50,7 +59,7 @@ MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 	bool startHoverTest = SettingReactUI(renderer, renderer.UIStartSRV, winSize, mousePos, targetSize, startRatio, startUIOffset);
 
  
-	// Exit UI 
+	// Exit 버튼 UI
 	float exitRatio[2] = { 0.5f, 0.8f };
 	float exitUIOffset[2] = { 50.0f, 100.0f };
 	targetSize[0] = 200; targetSize[1] = 200;
@@ -61,6 +70,7 @@ MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
 	 
+	// 클릭 이벤트 처리
 	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
 	{
 		MenuAction.start = true;
@@ -76,10 +86,13 @@ MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 }
 
 
+// 엔딩 메뉴 그리기
 MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 {
 	MenuActions MenuAction;
 	MenuAction.gameover = true;
+
+	// 윈도우 및 마우스 좌표 계산
 	RECT rect;
 	GetClientRect(hWnd, &rect);
 	float winW = (float)(rect.right - rect.left);
@@ -97,12 +110,14 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	float targetSize[2] = { winW, winH };
 	renderer.UpdateUIConstant(winSize, targetSize, false, nameRatio);
 	renderer.PrepareShaderUI(renderer.UINameSRV);
-	// Title UI
+
+	// Title(GameOver) UI
 	float titleRatio[2] = { 0.5f, 0.3f };
 	targetSize[0] = 500; targetSize[1] = 500;
 	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
 	renderer.PrepareShaderUI(renderer.UIGameOverSRV);
-	// Start UI
+
+	// Start 버튼 UI
 	float startRatio[2] = { 0.5f, 0.7f };
 	float startUIOffset[2] = { 50.0f, 100.f };
 	targetSize[0] = 200; targetSize[1] = 200;
@@ -112,7 +127,7 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	renderer.UpdateUIConstant(winSize, targetSize, startHoverTest, startRatio);
 	renderer.PrepareShaderUI(renderer.UIStartSRV);
 
-	// Menu UI
+	// Menu 버튼 UI
 	float menuRatio[2] = { 0.5f, 0.8f };
 	float menuUIOffset[2] = { 50.0f, 100.0f };
 	targetSize[0] = 200; targetSize[1] = 150;
@@ -121,7 +136,8 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	bool menuHoverTest = CheckMouseOnUI(reactMenu, mouseX, mouseY);
 	renderer.UpdateUIConstant(winSize, targetSize, menuHoverTest, menuRatio);
 	renderer.PrepareShaderUI(renderer.UIMenuSRV);
-	// Exit UI
+
+	// Exit 버튼 UI
 	float exitRatio[2] = { 0.9f, 0.95f };
 	float exitUIOffset[2] = { 50.0f, 100.0f };
 	targetSize[0] = 200; targetSize[1] = 200;
@@ -130,9 +146,10 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
 	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
 	MenuActions action; 
 
-	//Click Event
+	// 클릭 이벤트 처리
 	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
 	{
 		action.start = true;
@@ -142,7 +159,6 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 	{
 		action.exit = true;
 		MenuAction = action;
-		//NewController->bIsEnabled = true;
 	}
 	if (InputManager::Input().IsClicked(MouseButton::Left) && menuHoverTest)
 	{
@@ -150,12 +166,15 @@ MenuActions MenuUI::DrawEndingMenu(URenderer& renderer, HWND hWnd)
 		MenuAction = action;
 	}
 	return MenuAction;
-}
+} 
 
+// 실행 중 메뉴 (게임 플레이 중)
 MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 {
 	MenuActions MenuAction;
 	MenuAction.gameover = true;
+
+	// 윈도우/마우스 좌표
 	RECT rect;
 	GetClientRect(hWnd, &rect);
 	float winW = (float)(rect.right - rect.left);
@@ -168,7 +187,7 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
 
-	// Exit UI
+	// Exit 버튼 UI
 	float exitRatio[2] = { 0.9f, 0.95f };
 	float exitUIOffset[2] = { 50.0f, 100.0f };
 
@@ -180,6 +199,7 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
 
 	MenuActions action;
+	// 클릭 이벤트 처리
 	if (InputManager::Input().IsClicked(MouseButton::Left) && exitHoverTest)
 	{
 		action.exit = true;
@@ -188,10 +208,14 @@ MenuActions MenuUI::DrawRunningMenu(URenderer& renderer, HWND hWnd)
 	return MenuAction;
 }
 
+
+// 승리 메뉴
 MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 {
 	MenuActions MenuAction;
 	MenuAction.gameover = true;
+
+	// 윈도우 및 마우스 좌표
 	RECT rect;
 	GetClientRect(hWnd, &rect);
 	float winW = (float)(rect.right - rect.left);
@@ -204,19 +228,19 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 	int mouseY = pt.y;
 	float mousePos[2] = { mouseX, mouseY };
 
-	// Name UI
+	// Name UI (배경)
 	float nameRatio[2] = { 0.5f, 0.5f };
 	float targetSize[2] = { winW, winH };
 	renderer.UpdateUIConstant(winSize, targetSize, false, nameRatio);
 	renderer.PrepareShaderUI(renderer.UINameSRV);
 
-	// Title UI
+	// Title (Victory) UI
 	float titleRatio[2] = { 0.5f, 0.3f };
 	targetSize[0] = 500; targetSize[1] = 500;
 	renderer.UpdateUIConstant(winSize, targetSize, true, titleRatio);
 	renderer.PrepareShaderUI(renderer.UIVictorySRV);
 
-	// Start UI
+	// Start 버튼 UI
 	float startRatio[2] = { 0.5f, 0.7f };
 	float startUIOffset[2] = { 50.0f, 100.f };
 	targetSize[0] = 200; targetSize[1] = 200;
@@ -226,7 +250,7 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 	renderer.UpdateUIConstant(winSize, targetSize, startHoverTest, startRatio);
 	renderer.PrepareShaderUI(renderer.UIStartSRV);
 
-	// Menu UI
+	// Menu 버튼 UI
 	float menuRatio[2] = { 0.5f, 0.8f };
 	float menuUIOffset[2] = { 50.0f, 100.0f };
 	targetSize[0] = 200; targetSize[1] = 150;
@@ -235,7 +259,8 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 	bool menuHoverTest = CheckMouseOnUI(reactMenu, mouseX, mouseY);
 	renderer.UpdateUIConstant(winSize, targetSize, menuHoverTest, menuRatio);
 	renderer.PrepareShaderUI(renderer.UIMenuSRV);
-	// Exit UI
+
+	// Exit 버튼 UI
 	float exitRatio[2] = { 0.9f, 0.95f };
 	float exitUIOffset[2] = { 50.0f, 100.0f };
 	targetSize[0] = 200; targetSize[1] = 200;
@@ -244,8 +269,9 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 	bool exitHoverTest = CheckMouseOnUI(reactExit, mouseX, mouseY);
 	renderer.UpdateUIConstant(winSize, targetSize, exitHoverTest, exitRatio);
 	renderer.PrepareShaderUI(renderer.UIExitSRV);
+
 	MenuActions action;
-	// ====== Ŭ�� ó�� ======
+	// 클릭 이벤트 처리
 	if (InputManager::Input().IsClicked(MouseButton::Left) && startHoverTest)
 	{
 		action.start = true;
@@ -255,7 +281,6 @@ MenuActions MenuUI::DrawVictoryMenu(URenderer& renderer, HWND hWnd)
 	{
 		action.exit = true;
 		MenuAction = action;
-		//NewController->bIsEnabled = true;
 	}
 	if (InputManager::Input().IsClicked(MouseButton::Left) && menuHoverTest)
 	{
