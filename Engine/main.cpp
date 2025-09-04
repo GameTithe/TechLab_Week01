@@ -20,6 +20,7 @@
 #include "imGui/imgui_impl_win32.h"
 
 
+
 // UI 
 #include "MenuUI.h"
 #include "UIInfo.h"
@@ -926,17 +927,35 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector.ProcessGameLogic();
 
 			
-			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
+			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.05f)
 			{
 				ScreenState = Screen::EndingMenu;
 			}
 
 			// --- 게임 UI (ImGui) ---
-			ImGui::Begin("Game Info");			 
-			ImGuiIO& io = ImGui::GetIO();
-			io.FontGlobalScale = 1.5f;
-			
-			// 게임 시간 계산 및 표시
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(viewport->WorkSize);
+
+			ImGuiWindowFlags window_flags = 0;
+			window_flags |= ImGuiWindowFlags_NoTitleBar;
+			window_flags |= ImGuiWindowFlags_NoResize;
+			window_flags |= ImGuiWindowFlags_NoMove;
+			window_flags |= ImGuiWindowFlags_NoScrollbar;
+			window_flags |= ImGuiWindowFlags_NoCollapse;
+			window_flags |= ImGuiWindowFlags_NoBackground;
+			window_flags |= ImGuiWindowFlags_NoInputs;
+
+			ImGui::Begin("HUD", NULL, window_flags);
+
+			// 폰트 크기는 그대로 유지합니다.
+			ImGui::SetWindowFontScale(2.0f);
+
+			// Padding (여백) 설정
+			float paddingX = 20.0f; // 좌우 여백
+			float paddingY = 15.0f; // 상하 여백
+
+			// 게임 시간 계산
 			double currentGameTime = 0.0;
 			if (bGameStarted)
 			{
@@ -944,17 +963,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				QueryPerformanceCounter(&currentTime);
 				currentGameTime = double(currentTime.QuadPart - GameStartTime.QuadPart) / double(frequency.QuadPart);
 			}
-			ImGui::Text("player world pos: %.2f %.2f", playerWorldPos[0], playerWorldPos[1]);
-			ImGui::Text("Time: %.2f s", 30 - currentGameTime);
 
-			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-			ImGui::Text("Objects: %d", PrimitiveVector.size());
-			if (PrimitiveVector.Player)
-			{
-				EAttribute attr = PrimitiveVector.Player->GetAttribute();
-				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-				ImGui::Text("Player Attribute: %s", attrText);
+			// 1. 시간 표시 (왼쪽 위 + 여백)
+			ImGui::SetCursorPos(ImVec2(paddingX, paddingY));
+			ImGui::Text("Time: %.2f", 30.0 - currentGameTime);
+
+			// 2. 점수 표시 (오른쪽 위 + 여백)
+			int score = PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0;
+			char scoreText[64];
+			sprintf_s(scoreText, "Score: %d", score);
+
+			ImGui::SetCursorPos(ImVec2(viewport->WorkSize.x - paddingX - 120, paddingY));
+			ImGui::Text("%s", scoreText);
+
+			// 시간제한 승리 조건 (로직은 그대로 유지)
+			if (bGameStarted && currentGameTime >= 30.0) {
+				ScreenState = Screen::VictoryMenu;
+				PrimitiveVector.Clear();
 			}
+
 
 			//시간제한 - 게임이 시작되고 3초가 지나면 승리
 			if (bGameStarted && currentGameTime >= 30.0) {
