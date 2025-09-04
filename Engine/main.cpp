@@ -935,7 +935,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector.ProcessGameLogic();
 
 			
-			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
+			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.05f)
 			{
 				ScreenState = Screen::EndingMenu;
 			}
