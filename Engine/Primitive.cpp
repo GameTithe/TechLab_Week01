@@ -86,12 +86,8 @@ void UPlayer::ApplyMouseForceAndGravity(FVector MouseWorldLocation, FVector Cent
 		MouseAcc *= bIsKnockedBack ? KnockedBackAccStrength : MouseAccStrength;
 	}
 
-	FVector GravityForce = CenterOfMass - GetLocation();
-	GravityForce.Normalize();
-	GravityForce *= GravityStrength;
-	FVector GravityAcc = GravityForce * (1.0f / Mass);
-
-	Velocity += MouseAcc + GravityAcc;
+ 
+	Velocity += MouseAcc;
 	float baseLimit = bIsKnockedBack ? KnockedBackMaxSpeed : MaxSpeed;
 	float dynamicLimit = baseLimit;
 

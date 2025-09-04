@@ -143,16 +143,35 @@ void URenderer::CreateUIResources()
 
 	//Perframe CB
 	D3D11_BUFFER_DESC constBufferDesc{};
-	constBufferDesc.ByteWidth = 16; // float4 ���� (WindowSize(2)+pad(2))
+	constBufferDesc.ByteWidth = 16; 
 	constBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 	constBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	constBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	Device->CreateBuffer(&constBufferDesc, nullptr, &UIPerFrameCB);
 
+	//Perframe background
+	D3D11_BUFFER_DESC constBufferBackgroundDesc{};
+	constBufferBackgroundDesc.ByteWidth = 32;// (sizeof(UIBackGround));
+	constBufferBackgroundDesc.Usage = D3D11_USAGE_DYNAMIC;
+	constBufferBackgroundDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	constBufferBackgroundDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	Device->CreateBuffer(&constBufferBackgroundDesc, nullptr, &UIBackgroundCB);
+
+	//depth
+	ID3D11DepthStencilState* UIDepthOff = nullptr;
+
+	D3D11_DEPTH_STENCIL_DESC dsd{};
+	dsd.DepthEnable = FALSE;                           // ✅ 깊이 테스트 끔
+	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // ✅ 깊이 쓰기 끔 (보험)
+	dsd.DepthFunc = D3D11_COMPARISON_ALWAYS;          // ✅ 어차피 테스트 안 함
+	Device->CreateDepthStencilState(&dsd, &UIDepthOff);
+
 	// Sampler
 	D3D11_SAMPLER_DESC samplerDesc{};
 	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.AddressU = samplerDesc.AddressV = samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_MIRROR;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_MIRROR;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_MIRROR;
 	Device->CreateSamplerState(&samplerDesc, &UISampler);
 
 
@@ -173,6 +192,7 @@ void URenderer::CreateUIResources()
 	LoadTextureWIC(L"ui_name.png", &UINameSRV);
 	LoadTextureWIC(L"ui_menu.png", &UIMenuSRV);
 	LoadTextureWIC(L"ui_victory.png", &UIVictorySRV); 
+	LoadTextureWIC(L"ui_background.png", &UIBackgroundSRV);
 }
 void URenderer::ReleaseUIResource()
 {
@@ -184,6 +204,7 @@ void URenderer::ReleaseUIResource()
 	if (UIGameOverSRV) { UIGameOverSRV->Release();   UIGameOverSRV = nullptr; }
 	if (UINameSRV) { UINameSRV->Release();   UINameSRV = nullptr; }
 	if (UIVictorySRV) { UIVictorySRV->Release();   UIVictorySRV = nullptr; }
+	if (UIBackgroundSRV) { UIBackgroundSRV->Release();   UIBackgroundSRV = nullptr; }
 	if (UIPerFrameCB) { UIPerFrameCB->Release(); UIPerFrameCB = nullptr; }
 	if (UIVertexBuffer) { UIVertexBuffer->Release(); UIVertexBuffer = nullptr; }
 	if (UIInputLayout) { UIInputLayout->Release(); UIInputLayout = nullptr; }
@@ -378,10 +399,18 @@ void URenderer::PrepareShaderUI(ID3D11ShaderResourceView* UISRV)
 	DeviceContext->VSSetConstantBuffers(0, 1, &UIPerFrameCB);
 	DeviceContext->PSSetConstantBuffers(0, 1, &UIPerFrameCB);
 
+	DeviceContext->VSSetConstantBuffers(1, 1, &UIBackgroundCB);
+	DeviceContext->PSSetConstantBuffers(1, 1, &UIBackgroundCB);
+
 	DeviceContext->PSSetShaderResources(0, 1, &UISRV);
 
 
 	DeviceContext->PSSetSamplers(0, 1, &UISampler);
+
+
+	//TODOZ
+	DeviceContext->OMSetDepthStencilState(UIDepthOff, 0);
+
 
 	UINT stride = sizeof(UIVertex), offset = 0;
 	DeviceContext->IASetVertexBuffers(0, 1, &UIVertexBuffer, &stride, &offset);
@@ -524,10 +553,16 @@ void URenderer::UpdateUIConstant(float winSize[2], float targetSize[2], bool isH
 	{
 		UIInfo mainUI = { {winSize[0], winSize[1]}, isHovering ? 1 : 0, 0.0f };
 
+		UIBackGround backUI = { {0, 0}, {256, 256}, 0, {0, 0,0} };
 		D3D11_MAPPED_SUBRESOURCE m;
+		
 		DeviceContext->Map(UIPerFrameCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
 		memcpy(m.pData, &mainUI, sizeof(mainUI));
 		DeviceContext->Unmap(UIPerFrameCB, 0);
+		
+		DeviceContext->Map(UIBackgroundCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+		memcpy(m.pData, &backUI, sizeof(backUI));
+		DeviceContext->Unmap(UIBackgroundCB, 0);
 
 		float w = targetSize[0] * (winSize[0] / winWidth), h = targetSize[1] * (winSize[1] / winHeight);
 		float cx = winSize[0] * ratio[0], cy = winSize[1] * ratio[1];
@@ -545,7 +580,46 @@ void URenderer::UpdateUIConstant(float winSize[2], float targetSize[2], bool isH
 
 		DeviceContext->Map(UIVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
 		memcpy(m.pData, verts, sizeof(verts));
-		DeviceContext->Unmap(UIVertexBuffer, 0);
+		DeviceContext->Unmap(UIVertexBuffer, 0); 
+	}
+}
+void URenderer::UpdateBackgroundUIConstant(float winSize[2],float playerWorldPos[2], float targetSize[2], float ratio[2])
+{
+	 
+	if (UIBackgroundCB && UIPerFrameCB)
+	{
+		UIInfo mainUI = { {winSize[0], winSize[1]}, 0, 0.0f };
+		UIBackGround backUI = { {playerWorldPos[0], playerWorldPos[1]}, {256  , 256 }, 1, {0, 0, 0} };
+
+		D3D11_MAPPED_SUBRESOURCE m;
+		 
+		DeviceContext->Map(UIPerFrameCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+		memcpy(m.pData, &mainUI, sizeof(mainUI));
+		DeviceContext->Unmap(UIPerFrameCB, 0);
+
+		DeviceContext->Map(UIBackgroundCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+		memcpy(m.pData, &backUI, sizeof(backUI));
+		DeviceContext->Unmap(UIBackgroundCB, 0);
+
+
+		float w = targetSize[0] * (winSize[0] / winWidth), h = targetSize[1] * (winSize[1] / winHeight);
+		float cx = winSize[0] * ratio[0], cy = winSize[1] * ratio[1];
+		float x0 = cx - w * 0.5f, y0 = cy - h * 0.5f;
+		float x1 = cx + w * 0.5f, y1 = cy + h * 0.5f;
+
+		UIVertex verts[6] = {
+		{x0,y0, 0,0, 1,1,1,1},
+		{x1,y0, 1,0, 1,1,1,1},
+		{x1,y1, 1,1, 1,1,1,1},
+		{x0,y0, 0,0, 1,1,1,1},
+		{x1,y1, 1,1, 1,1,1,1},
+		{x0,y1, 0,1, 1,1,1,1},
+		};
+
+		DeviceContext->Map(UIVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &m);
+		memcpy(m.pData, verts, sizeof(verts));
+		DeviceContext->Unmap(UIVertexBuffer, 0); 
+
 
 	}
 }

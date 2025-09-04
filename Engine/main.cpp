@@ -182,29 +182,7 @@ public:
 
 		CenterOfMass = FVector(CenterX / TotalMass, CenterY / TotalMass, 0.0f);
 		return true;
-	}
-
-	// Calculate Move Vector and Call Movement for each Player Cell
-	void Move(const FVector& CursorWorldCoord)
-	{
-		FVector CenterOfMass;
-		if (!TryGetCenterOfMass(CenterOfMass))
-		{
-			return;
-		}
-
-		FVector MoveVector = CursorWorldCoord - CenterOfMass;
-		MoveVector.Normalize();
-
-		for (int i = 0; i < Count; ++i)
-		{
-			UPlayer* Cell = PlayerCells[i];
-			if (!Cell)
-			{
-				continue;
-			}
-			}
-	}
+	} 
 
 	// Enroll New Player Cell to Controller (initialize or split)
 	void Enroll(UPlayer* NewCell)
@@ -254,6 +232,7 @@ public:
 		return MaxRadius;
 	}
 };
+
 struct Merge
 {
 	int indexA;
@@ -693,7 +672,7 @@ public:
 // WinMain 함수가 시작되기 전에 이 함수를 추가하세요.
 
 float playerScale = 0.0f;
-
+float playerWorldPos[2] = { 0, 0 };
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -758,6 +737,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	bool bGameStarted = false;
 	LARGE_INTEGER GameStartTime;
 
+
 	// --- 메인 루프 ---
 	bool bIsExit = false;
 	while (bIsExit == false)
@@ -785,13 +765,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
 
+		/*menuUI.DrawBackgroundMenu(renderer, playerWorldPos, hWnd);*/
+
 		// --- 렌더링 로직 ---
 		std::vector<int> visiblePrimitives, invisiblePrimitives;
 		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
 
-		if(PrimitiveVector[0] != nullptr)
-			playerScale = PrimitiveVector[0]->GetRadius(); 
-		
+		if (PrimitiveVector[0] != nullptr)
+			playerScale = PrimitiveVector[0]->GetRadius();
+
+		menuUI.DrawBackgroundMenu(renderer, playerWorldPos, hWnd);
+		renderer.DeviceContext->ClearDepthStencilView(renderer.DepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
 		for (int idx : visiblePrimitives)
 		{
 			UPrimitive* prim = PrimitiveVector[idx];
@@ -805,8 +790,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 		}
 		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
-		
 
+		playerWorldPos[0] = Cam->Location.x;
+		playerWorldPos[1] = -Cam->Location.y;
+
+		// 배경 포함 UI 그리기 시작 위치에서
+
+		//renderer.DeviceContext->OMSetDepthStencilState(rendererUIDepthOff, 0);
 		////////// UI TEST //////////  
 		switch (ScreenState)
 		{
@@ -865,7 +855,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			break;
 		}
 		case Screen::Running:
-		{
+		{ 
 
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
@@ -874,7 +864,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			// Tick 
 			enemySpawner.Tick(&PrimitiveVector);
 
-			MenuActions action = menuUI.DrawRunningMenu(renderer, hWnd);
+			//MenuActions action = menuUI.DrawRunningMenu(renderer, hWnd);
 			auto now = std::chrono::steady_clock::now(); // 현재 시간 가져오기
 
 			// ENEMY 타이머 확인 및 생성
@@ -887,6 +877,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			if (Controller->PlayerCells[0]->Attribute < 0)
 			{	
+
 				// 플레이어 생성 및 추가
 				UPlayer* player = new UPlayer();
 				PrimitiveVector.push_back(player);
@@ -953,6 +944,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				QueryPerformanceCounter(&currentTime);
 				currentGameTime = double(currentTime.QuadPart - GameStartTime.QuadPart) / double(frequency.QuadPart);
 			}
+			ImGui::Text("player world pos: %.2f %.2f", playerWorldPos[0], playerWorldPos[1]);
 			ImGui::Text("Time: %.2f s", 30 - currentGameTime);
 
 			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
@@ -979,12 +971,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
 
-			if (action.menu)
-			{
- 				ScreenState = Screen::MainMenu;
-			}
-			if (action.exit)
-				bIsExit = true;
+			//if (action.menu)
+			//{
+ 			//	ScreenState = Screen::MainMenu;
+			//}
+			//if (action.exit)
+			//	bIsExit = true;
 			break;
 		}
 		case Screen::VictoryMenu:

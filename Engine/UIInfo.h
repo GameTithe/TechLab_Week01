@@ -15,6 +15,14 @@ struct UIReact
 	float y0, y1;
 };
 
+struct UIBackGround
+{
+	float playerWorldPos[2];
+	float textureResolution[2];
+	float flag = 0;
+	float Padding[3];
+};
+
 inline bool CheckMouseOnUI(const UIReact& TestUIReact, float x, float y)
 {
 	return (x < TestUIReact.x1 && x > TestUIReact.x0) && (y < TestUIReact.y1 && y > TestUIReact.y0);

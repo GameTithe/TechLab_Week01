@@ -24,6 +24,27 @@ bool  MenuUI::SettingReactUI(URenderer renderer, ID3D11ShaderResourceView* SRV, 
 }
 
 
+void MenuUI::DrawBackgroundMenu(URenderer& renderer, float playerPos[2], HWND hWnd)
+{
+	// 윈도우 사이즈 구하기
+	RECT rect;
+	GetClientRect(hWnd, &rect);
+	float winW = (float)(rect.right - rect.left);
+	float winH = (float)(rect.bottom - rect.top);
+	float winSize[2] = { winW, winH };
+	  
+	// Title UI 렌더링
+	float titleRatio[2] = { 0.5f, 0.5f };
+	float targetSize[2] = { 1024, 1024 };
+	float resolu[2]  = {1024	, 1024}; 
+
+	renderer.UpdateBackgroundUIConstant(winSize,  playerPos, resolu	, titleRatio);
+	
+	//TODO
+	renderer.PrepareShaderUI(renderer.UIBackgroundSRV);
+
+}
+
 // 메인 메뉴 그리기
 MenuActions MenuUI::DrawMainMenu(URenderer& renderer, HWND hWnd)
 {

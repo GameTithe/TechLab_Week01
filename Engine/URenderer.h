@@ -37,6 +37,9 @@ public:
 
 	ID3D11Buffer* UIVertexBuffer = nullptr;
 	ID3D11Buffer* UIPerFrameCB = nullptr;
+		
+	ID3D11Buffer* UIBackgroundCB = nullptr;
+
 
 	ID3D11ShaderResourceView* UITitleSRV = nullptr;
 	ID3D11ShaderResourceView* UIStartSRV = nullptr;
@@ -45,6 +48,9 @@ public:
 	ID3D11ShaderResourceView* UIVictorySRV = nullptr;
 	ID3D11ShaderResourceView* UIGameOverSRV = nullptr;
 	ID3D11ShaderResourceView* UINameSRV = nullptr;
+	ID3D11ShaderResourceView* UIBackgroundSRV = nullptr;
+
+	ID3D11DepthStencilState* UIDepthOff = nullptr;
 
 	ID3D11SamplerState* UISampler = nullptr;
 	ID3D11BlendState* UIAlphaBlend = nullptr;
@@ -139,4 +145,6 @@ public:
 	void UpdateUnitConstant(FVector velocity, int attribute, float time, FVector Offset, float Scale, float playerScale);
 
 	void UpdateUIConstant(float winSize[2], float targetSize[2], bool isHovering, float ratio[2]);
+	
+	void UpdateBackgroundUIConstant(float winSize[2], float playerWorldPos[2], float targetSize[2], float ratio[2]);
 };

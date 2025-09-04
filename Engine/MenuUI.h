@@ -11,6 +11,8 @@ struct MenuActions { bool menu = false; bool start = false; bool running = false
 class MenuUI
 {
 public:
+	void DrawBackgroundMenu(URenderer& renderer, float playerPos[2], HWND hWnd);
+
 	MenuActions DrawMainMenu(URenderer& renderer, HWND hWnd);
 	MenuActions DrawEndingMenu(URenderer& renderer, HWND hWnd);
 	MenuActions DrawRunningMenu(URenderer& renderer, HWND hWnd); 

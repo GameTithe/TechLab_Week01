@@ -6,6 +6,14 @@ cbuffer UI_PerDraw : register(b0)
     float Padding;
 };
 
+cbuffer UI_BackgroundInfo : register(b1)
+{
+    float2 playerWorldPos;
+    float2 textureResolution; 
+    float flag;
+    float3 Padding3;
+}
+
 Texture2D UITexture : register(t0);
 SamplerState UISampler : register(s0);
 
@@ -36,15 +44,32 @@ PS_INPUT mainVS(VS_INPUT input)
     output.position = float4(ndc, 0.0f, 1.0f);
     output.uv = input.uv;
     output.color = input.color;
-
     
     return output;
 }
 
 float4 mainPS(PS_INPUT input) : SV_Target
 {
-    float4 tex0 = UITexture.Sample(UISampler, input.uv);
-      
+    float4 tex0 = float4(0, 0, 0, 0);
+    if(flag)
+    {
+        //0.1  / 256  
+       // float2 uvOffset = frac(playerWorldPos / textureResolution);
+       // tex0 = UITexture.Sample(UISampler, input.uv + uvOffset);
+        
+        //tex0 = UITexture.Sample(UISampler, (playerWorldPos % textureResolution) / textureResolution);
+        //tex0 = UITexture.Sample(UISampler, input.uv);
+        float2 uv = frac(input.uv + playerWorldPos % textureResolution);
+         
+        tex0 = UITexture.Sample(UISampler, uv);
+    }
+     
+    else
+    {
+        tex0 = UITexture.Sample(UISampler, input.uv); 
+        
+    }
+  
     if (IsHovering == 1)
     {
         tex0.rgb *= 1.5; 
