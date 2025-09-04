@@ -956,7 +956,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				QueryPerformanceCounter(&currentTime);
 				currentGameTime = double(currentTime.QuadPart - GameStartTime.QuadPart) / double(frequency.QuadPart);
 			}
-			ImGui::Text("Time: %.2f s", currentGameTime);
+			ImGui::Text("Time: %.2f s", 30 - currentGameTime);
 
 			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
 			ImGui::Text("Objects: %d", PrimitiveVector.size());
