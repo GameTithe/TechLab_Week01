@@ -555,8 +555,7 @@ public:
 			a->SetVelocity(a->GetVelocity() + acceleration);
 		}
 	}
-
-	// ?�면 ?�역 ?�에 ?�는지 체크?�는 ?�수
+	 
 	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius,
 						float minX = -2.0f, float maxX = 2.0f,
 						float minY = -2.0f, float maxY = 2.0f) const
@@ -566,8 +565,7 @@ public:
 				renderedLocation.y + renderedRadius >= minY &&
 				renderedLocation.y - renderedRadius <= maxY);
 	}
-
-	// 보이??객체?� 보이지 ?�는 객체�?분류?�는 ?�수
+	 
 	void ClassifyBorder(UCamera* camera,
 						std::vector<int>& InSideIndices,
 						std::vector<int>& OutSideIndices)
@@ -776,7 +774,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		renderer.Prepare();
 		renderer.PrepareUnitShader();
 
-		// Texture Noise Timer
+		//iTime For Noise Texture
 		LARGE_INTEGER now;
 		QueryPerformanceCounter(&now);
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
