@@ -20,6 +20,7 @@
 #include "imGui/imgui_impl_win32.h"
 
 
+
 // UI 
 #include "MenuUI.h"
 #include "UIInfo.h"
@@ -103,9 +104,6 @@ inline float Dot(const FVector& v1, const FVector& v2)
 
 //sphere
 #include "Sphere.h" 
-
-class UPlayer; 
-
 
 class UController
 {
@@ -419,8 +417,13 @@ public:
 				{
 					USoundManager::PreyEat();
 
-					Player->AddScore(-5);
-					Player->SetRadius(Player->GetRadius() - 0.005f);
+					float otherRadius = other->GetRadius();
+					int scoreToAdd = static_cast<int>(otherRadius * otherRadius * 1000);
+					Player->AddScore(-scoreToAdd);
+
+					float playerRadius = Player->GetRadius();
+					float newRadius = sqrt(abs(playerRadius * playerRadius - otherRadius * otherRadius));
+					Player->SetRadius(newRadius);
 					RemoveAt(i); /** 상대 객체를 제거 */
 				}
 
@@ -558,8 +561,7 @@ public:
 			a->SetVelocity(a->GetVelocity() + acceleration);
 		}
 	}
-
-	// ?�면 ?�역 ?�에 ?�는지 체크?�는 ?�수
+	 
 	bool IsInRenderArea(const FVector& renderedLocation, float renderedRadius,
 						float minX = -2.0f, float maxX = 2.0f,
 						float minY = -2.0f, float maxY = 2.0f) const
@@ -569,8 +571,7 @@ public:
 				renderedLocation.y + renderedRadius >= minY &&
 				renderedLocation.y - renderedRadius <= maxY);
 	}
-
-	// 보이??객체?� 보이지 ?�는 객체�?분류?�는 ?�수
+	 
 	void ClassifyBorder(UCamera* camera,
 						std::vector<int>& InSideIndices,
 						std::vector<int>& OutSideIndices)
@@ -640,14 +641,14 @@ using Clock = std::chrono::steady_clock;
 class UEnemySpawner
 {
 public:
+	// @param BaseInterval: 기본 생성 주기 (밀리초)
+	// @param RandomInterval: BaseInterval에 추가적으로 더해지는 랜덤 생성 주기 (밀리초)
 	UEnemySpawner(int BaseInterval = 300, int RandomInterval = 300) : BaseSpawnIntervalMs(BaseInterval), RandomSpawnIntervalMs(RandomInterval)
 	{
 		Init();
 	}
 
 	/** Base spawn interval in milliseconds */
-
-
 	int BaseSpawnIntervalMs;
 
 	/** Random spawn interval in milliseconds */
@@ -739,8 +740,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UINT numVerticesSphere = sizeof(sphere_vertices) / sizeof(FVertexSimple);
 	ID3D11Buffer* vertexBufferSphere = renderer.CreateVertexBuffer(verticesSphere, sizeof(sphere_vertices));
 
+	// --- 게임 컴포넌트들 선언 / 초기화 ---
 	FPrimitiveVector PrimitiveVector;
-	UController* Controller = new UController(10);;
+	UController* Controller = new UController(10);
 	UCamera* Cam = new UCamera();
 	UCamera::Main = Cam;
 	UEnemySpawner enemySpawner(200, 100); // 0.4초 ~ 0.6초마다 적 생성을 위한 타이머
@@ -778,14 +780,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		renderer.Prepare();
 		renderer.PrepareUnitShader();
 
-		//Test Time
+		//iTime For Noise Texture
 		LARGE_INTEGER now;
 		QueryPerformanceCounter(&now);
 		double elapsed = double(now.QuadPart - CreateStartTime.QuadPart) / double(frequency.QuadPart);
 		float iTime = static_cast<float>(elapsed);
 
 		// --- 렌더링 로직 ---
-		renderer.PrepareUnitShader();
 		std::vector<int> visiblePrimitives, invisiblePrimitives;
 		PrimitiveVector.ClassifyBorder(Cam, visiblePrimitives, invisiblePrimitives);
 
@@ -804,9 +805,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				renderer.RenderPrimitive(vertexBufferSphere, numVerticesSphere);
 			}
 		}
-
-		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives); 
-		float checkTime = 0.0f;
+		PrimitiveVector.RemoveOutsidePrimitives(invisiblePrimitives);
+		
 
 		////////// UI TEST //////////  
 		switch (ScreenState)
@@ -823,7 +823,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					Controller = nullptr;
 				}
 				
-
 				// 만약을 위해 기존 객체들을 모두 삭제 (재시작 기능 대비)
 				while (PrimitiveVector.size() > 0)
 				{
@@ -872,7 +871,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
-
 
 			// Tick 
 			enemySpawner.Tick(&PrimitiveVector);
@@ -938,19 +936,35 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PrimitiveVector.ProcessGameLogic();
 
 			
-			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.02f)
+			if (PrimitiveVector.Player && PrimitiveVector.Player->GetRadius() < 0.05f)
 			{
 				ScreenState = Screen::EndingMenu;
 			}
 
 			// --- 게임 UI (ImGui) ---
-			ImGui::Begin("Game Info");			
-			ImGui::Text("Camera Pos: %.2f %.2f %.2f ", Cam->Location.x, Cam->Location.y, Cam->Location.z);
-			
-			ImGuiIO& io = ImGui::GetIO();
-			io.FontGlobalScale = 1.5f;
-			
-			// 게임 시간 계산 및 표시
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(viewport->WorkSize);
+
+			ImGuiWindowFlags window_flags = 0;
+			window_flags |= ImGuiWindowFlags_NoTitleBar;
+			window_flags |= ImGuiWindowFlags_NoResize;
+			window_flags |= ImGuiWindowFlags_NoMove;
+			window_flags |= ImGuiWindowFlags_NoScrollbar;
+			window_flags |= ImGuiWindowFlags_NoCollapse;
+			window_flags |= ImGuiWindowFlags_NoBackground;
+			window_flags |= ImGuiWindowFlags_NoInputs;
+
+			ImGui::Begin("HUD", NULL, window_flags);
+
+			// 폰트 크기는 그대로 유지합니다.
+			ImGui::SetWindowFontScale(2.0f);
+
+			// Padding (여백) 설정
+			float paddingX = 20.0f; // 좌우 여백
+			float paddingY = 15.0f; // 상하 여백
+
+			// 게임 시간 계산
 			double currentGameTime = 0.0;
 			if (bGameStarted)
 			{
@@ -958,16 +972,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				QueryPerformanceCounter(&currentTime);
 				currentGameTime = double(currentTime.QuadPart - GameStartTime.QuadPart) / double(frequency.QuadPart);
 			}
-			ImGui::Text("Time: %.2f s", currentGameTime);
 
-			ImGui::Text("Score: %d", PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0);
-			ImGui::Text("Objects: %d", PrimitiveVector.size());
-			if (PrimitiveVector.Player)
-			{
-				EAttribute attr = PrimitiveVector.Player->GetAttribute();
-				const char* attrText = (attr == WATER) ? "WATER" : (attr == FIRE) ? "FIRE" : "GRASS";
-				ImGui::Text("Player Attribute: %s", attrText);
+			// 1. 시간 표시 (왼쪽 위 + 여백)
+			ImGui::SetCursorPos(ImVec2(paddingX, paddingY));
+			ImGui::Text("Time: %.2f", 30.0 - currentGameTime);
+
+			// 2. 점수 표시 (오른쪽 위 + 여백)
+			int score = PrimitiveVector.Player ? PrimitiveVector.Player->GetScore() : 0;
+			char scoreText[64];
+			sprintf_s(scoreText, "Score: %d", score);
+
+			ImGui::SetCursorPos(ImVec2(viewport->WorkSize.x - paddingX - 120, paddingY));
+			ImGui::Text("%s", scoreText);
+
+			// 시간제한 승리 조건 (로직은 그대로 유지)
+			if (bGameStarted && currentGameTime >= 30.0) {
+				ScreenState = Screen::VictoryMenu;
+				PrimitiveVector.Clear();
 			}
+
 
 			//시간제한 - 게임이 시작되고 3초가 지나면 승리
 			if (bGameStarted && currentGameTime >= 30.0) {
