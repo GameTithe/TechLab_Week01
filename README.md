@@ -1,3 +1,5 @@
+1주차_DIRECTX 과제
+=======
 # Bgar.io
 
 Agar.io에서 영감을 받아 제작된 세포 진화 게임으로, DirectX 11과 ImGui를 사용하여 실시간 3D 그래픽과 인터랙티브 UI를 제공합니다.
@@ -192,3 +194,4 @@ Copyright (c) 2025 GameTithe
 ---
 
 *Agar.io에서 영감을 받아 속성 기반 전투 시스템을 추가한 혁신적인 세포 진화 게임*
+
